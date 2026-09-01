@@ -347,3 +347,12 @@ See `URL_STRUCTURE_v4.14.md` for the route map and recommended production subdom
 ## v4.16 report-detail nested-route fix
 
 The Reports detail view and PDF download are now base-path safe for the production deployment at `/website-audit`. See `REPORT_DETAIL_BASEPATH_FIX_v4.16.md`.
+
+
+## Etsy OAuth connection
+
+The branded Settings page now includes a **Connect Etsy** flow. Configure `ETSY_KEYSTRING`, `ETSY_SHARED_SECRET`, and `NEXT_PUBLIC_APP_URL`, then register this exact redirect URI in the Etsy developer app:
+
+`https://saraejohnston.com/website-audit/api/etsy/oauth/callback`
+
+Open `/website-audit/settings`, enter the internal admin token, and click **Connect Etsy**. The app uses Etsy OAuth Authorization Code + PKCE, requests `transactions_r`, exchanges the authorization code server-side, and stores the access/refresh tokens in the existing private `integration_tokens` table. The regular Etsy client automatically refreshes access tokens and persists any rotated refresh token. `ETSY_REFRESH_TOKEN` remains only as an optional legacy/bootstrap fallback and can be left blank for the normal Connect Etsy workflow.
