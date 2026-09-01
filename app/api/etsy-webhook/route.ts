@@ -2,9 +2,10 @@ import { after, NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { db } from '@/lib/db';
 import { verifyEtsyWebhook } from '@/lib/etsy-webhook';
-import { getEtsyOrderContext } from '@/lib/etsy';
+import { getEtsyOrderContext, isEtsyShopOwnershipError } from '@/lib/etsy';
 import { createAudit } from '@/lib/repository';
 import { processAudit } from '@/lib/pipeline';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -15,9 +16,22 @@ export async function POST(req: Request) {
   const webhookId = req.headers.get('webhook-id');
   const ok = verifyEtsyWebhook({ rawBody, webhookId, webhookTimestamp: req.headers.get('webhook-timestamp'), webhookSignature: req.headers.get('webhook-signature'), secret: env.ETSY_WEBHOOK_SECRET });
   if (!ok) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-  let payload: any;
-  try { payload = JSON.parse(rawBody); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
-  if (payload.event_type !== 'order.paid') return NextResponse.json({ ok: true, ignored: true });
+  const webhookPayloadSchema = z.object({
+    event_type: z.string().min(1),
+    resource_url: z.string().url(),
+    shop_id: z.coerce.number().int().positive(),
+  }).passthrough();
+
+  let payload: z.infer<typeof webhookPayloadSchema>;
+  try {
+    payload = webhookPayloadSchema.parse(JSON.parse(rawBody));
+  } catch (error) {
+    const detail = error instanceof z.ZodError
+      ? error.issues.map(issue => `${issue.path.join('.') || 'payload'}: ${issue.message}`).join('; ')
+      : 'Invalid JSON';
+    return NextResponse.json({ error: 'Invalid Etsy webhook payload', detail }, { status: 400 });
+  }
+  if (payload.event_type !== 'order.paid') return NextResponse.json({ ok: true, ignored: true, eventType: payload.event_type });
   if (!webhookId) return NextResponse.json({ error: 'Missing webhook id' }, { status: 400 });
 
   const { data: existing, error: existingError } = await db.from('webhook_events').select('processed,audit_id,audit_ids,error_message').eq('webhook_id', webhookId).maybeSingle();
@@ -81,7 +95,37 @@ export async function POST(req: Request) {
     }, { status: auditIds.length ? 202 : 200 });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+
+    // Etsy's Webhook Portal sends a synthetic order.paid event using a shop/receipt
+    // that the connected seller does not own. Signature verification has already
+    // proved that the delivery came from Etsy, so acknowledge this class of test
+    // cleanly rather than returning 500 and causing webhook retries. The same
+    // response is also safer for a genuine signed event from a shop that is not
+    // authorized by this Studio connection: ignore it instead of processing it.
+    if (isEtsyShopOwnershipError(e)) {
+      const isPortalStyleTest = Number(payload.shop_id) === 12345;
+      const reason = isPortalStyleTest
+        ? 'Etsy Webhook Portal test received and signature verified; synthetic shop is not owned by the connected account.'
+        : `Signed Etsy event ignored because the connected Etsy account is not authorized for shop ${payload.shop_id}.`;
+      await db.from('webhook_events').update({
+        processed: true,
+        error_message: reason.slice(0, 2000),
+      }).eq('webhook_id', webhookId);
+      return NextResponse.json({
+        ok: true,
+        test: isPortalStyleTest,
+        ignored: !isPortalStyleTest,
+        signatureVerified: true,
+        reason,
+      });
+    }
+
     await db.from('webhook_events').update({ error_message: message.slice(0, 2000) }).eq('webhook_id', webhookId);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({
+      error: 'Etsy order processing failed',
+      detail: message,
+      webhookId,
+      shopId: payload.shop_id,
+    }, { status: 500 });
   }
 }

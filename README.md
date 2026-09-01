@@ -380,3 +380,7 @@ ETSY_SHARED_SECRET=YOUR_SHARED_SECRET
 ```
 
 The application constructs the combined header server-side. Do not paste `keystring:shared_secret` into `ETSY_KEYSTRING`.
+
+## Etsy webhook test behavior (v4.21)
+
+Etsy's Webhook Portal can send a synthetic `order.paid` event whose test shop is not owned by the connected seller. After the webhook signature is verified, the app acknowledges that synthetic ownership error as a successful test rather than returning a generic 500. Real paid-order webhooks continue through the receipt and transaction lookup flow.

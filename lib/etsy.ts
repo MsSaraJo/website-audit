@@ -19,6 +19,23 @@ async function refreshAccessToken() {
   return token.access_token as string;
 }
 
+export class EtsyApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly responseBody: string,
+    public readonly requestUrl: string,
+  ) {
+    super(`Etsy API ${status}: ${responseBody.slice(0, 600)}`);
+    this.name = 'EtsyApiError';
+  }
+}
+
+export function isEtsyShopOwnershipError(error: unknown) {
+  return error instanceof EtsyApiError
+    && error.status === 403
+    && /user does not own shop/i.test(error.responseBody);
+}
+
 async function etsyGet(url: string) {
   const parsed = new URL(url);
   if (!['api.etsy.com', 'openapi.etsy.com'].includes(parsed.hostname) || !parsed.pathname.startsWith('/v3/')) {
@@ -26,7 +43,10 @@ async function etsyGet(url: string) {
   }
   const access = await refreshAccessToken();
   const res = await fetch(url, { headers: { 'x-api-key': getEtsyApiKeyHeader(), authorization: `Bearer ${access}` } });
-  if (!res.ok) throw new Error(`Etsy API ${res.status}: ${(await res.text()).slice(0, 600)}`);
+  if (!res.ok) {
+    const responseBody = (await res.text()).slice(0, 2000);
+    throw new EtsyApiError(res.status, responseBody, url);
+  }
   return res.json();
 }
 
