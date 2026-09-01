@@ -177,3 +177,59 @@ Generated reports are private in Supabase Storage. The admin PDF endpoint requir
 The manual audit route validates the request and target URL before inserting a row into Supabase. Updated builds return the actual validation or Supabase error in the UI instead of collapsing non-`Error` objects into `Invalid request`.
 
 If an existing Supabase project was created from the original schema, run `supabase/migrations/002_etsy_made_to_order.sql` before testing the updated app. The updated pipeline expects the added Etsy fulfillment columns (including `etsy_transaction_id`, `etsy_listing_id`, `etsy_quantity`, `email_delivered_at`, and `etsy_upload_confirmed_at`) and the `awaiting_etsy_upload` audit status.
+
+## Client-facing report labels
+
+The product nicknames used for Etsy routing and admin workflow are intentionally kept out of customer PDFs. Reports use polished client-facing titles instead:
+
+| Internal tier | Client-facing PDF title |
+|---|---|
+| `quick_win` | Website SEO, UX & Conversion Audit |
+| `full_site` | Comprehensive Website SEO, UX & Conversion Audit |
+| `competitor_conquest` | Website & Competitor SEO, UX & Conversion Audit |
+
+The report template also avoids headings such as "Priority quick wins" and uses client-friendly language such as "Your highest-priority improvements." Internal SKUs and product names remain unchanged for Etsy routing.
+
+## Client report design system
+
+The generated PDF uses the finalized MsSaraJo editorial report system:
+
+- Warm ivory page background with deep ink navy typography.
+- Terracotta is reserved for the MsSaraJo brand signature, page numbering, ornaments, and emphasis - not for negative scoring.
+- Rich emerald communicates excellent/strong results and constructive high-impact priorities.
+- Dusty slate blue communicates a good foundation and technical/reference information.
+- Muted gold communicates opportunities for improvement without using alarm-style red.
+- Client score labels are: Excellent (80-100), Strong (75-79), Good foundation (65-74), Opportunity (50-64), and Priority attention (below 50).
+- The cover uses a horizontal MsSaraJo lockup, oversized editorial title, and large overall score treatment.
+- Roadmap pages show up to three recommendations per page with editorial numbering, Why this matters, and Recommended next step.
+- Rewrites receive dedicated Ready-to-Use Recommendations pages with implementation guidance and positive findings.
+- Technical PageSpeed and crawl signals live in a separate Technical Snapshot page so they do not dominate the client-facing story.
+
+Internal Etsy tier names remain available for routing and SKUs, but are not printed in the client PDF.
+
+## Report design v3.5
+
+The client PDF renderer uses the approved MsSaraJo editorial design system:
+
+- enlarged horizontal MsSaraJo header lockup and "Personalized Website Review" capsule
+- client-friendly report titles (internal Etsy tier names remain hidden)
+- warm ivory / navy / terracotta / emerald / dusty-blue / gold palette
+- notched editorial callout frames and vector sparkle motifs
+- percentage-driven score gauges: each score arc is calculated from the live score value
+- page-2 score arcs use dotted percentage paths with start/end sparkles pinned to the actual calculated endpoints
+- the cover uses the same data-driven endpoint logic with a larger editorial score treatment
+- SVG geometry is used for sparkles, score arcs, and numbered badges so Puppeteer PDF output remains crisp and does not stretch into ovals
+
+No new environment variables are required for v3.5.
+
+## v3.6 editorial report refinements
+
+The PDF renderer now uses the approved MsSaraJo v3.6 visual system:
+
+- Percentage-driven score arcs remain unchanged: each dotted arc and endpoint sparkle is calculated from the live score.
+- Decorative frames use aspect-aware SVG geometry so corner curves stay elegant instead of stretching on wide or tall boxes.
+- Non-score decorative sparkles are scaled up to match the visual weight of the arc sparkles.
+- Page 2 restores the larger sparkle cluster and dotted flourish inside the "Where to Focus First" panel.
+- Roadmap pages use larger sparkle clusters plus dotted editorial flourishes.
+- The roadmap closing panel is redesigned as the approved "Focus. Impact. Growth." editorial callout with a large left sparkle, centered rule, right-side sparkle cluster, and cleaner corner geometry.
+- Recommendation sidebar panels use the same corrected corner geometry and larger accent sparkles.

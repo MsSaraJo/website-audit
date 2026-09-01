@@ -24,6 +24,7 @@ Produce practical advice for a small business owner. Be specific, evidence-based
 Do not invent measurements. Scores must reflect the supplied evidence. GEO means discoverability/clarity for answer engines and AI crawlers, based on crawl access, structured data, semantic headings, concise factual copy, lists, and llms.txt/robots signals.
 Tier: ${tier}.
 For quick_win, prioritize the homepage and exactly the highest-value fixes. For full_site, compare patterns across pages and include useful copy rewrites. For competitor_conquest, include a meaningful competitorGap based only on supplied competitor evidence.
+Never expose internal tier identifiers or product nicknames such as quick_win, Quick Win, Full Site, or Competitor Conquest in client-facing fields. reportTitle should be polished, neutral, and focused on the client's website rather than the purchased tier.
 If customerContext contains a stated platform or business goal, use it only to prioritize otherwise evidence-supported recommendations; do not invent facts from it.`;
 }
 

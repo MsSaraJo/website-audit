@@ -8,6 +8,8 @@ export type AuditProduct = {
   sku: string;
   priceUsd: number;
   description: string;
+  clientReportName: string;
+  clientFileLabel: string;
 };
 
 export const AUDIT_PRODUCTS: Record<AuditTier, AuditProduct> = {
@@ -18,6 +20,8 @@ export const AUDIT_PRODUCTS: Record<AuditTier, AuditProduct> = {
     sku: 'MSJ-WEB-QW-001',
     priceUsd: 49,
     description: 'Homepage-focused SEO, UX, speed and conversion audit with the highest-value fixes.',
+    clientReportName: 'Website SEO, UX & Conversion Audit',
+    clientFileLabel: 'Website-Audit',
   },
   full_site: {
     tier: 'full_site',
@@ -26,6 +30,8 @@ export const AUDIT_PRODUCTS: Record<AuditTier, AuditProduct> = {
     sku: 'MSJ-WEB-FULL-001',
     priceUsd: 99,
     description: 'Multi-page SEO, UX, speed and conversion review with copy rewrites and prioritized recommendations.',
+    clientReportName: 'Comprehensive Website SEO, UX & Conversion Audit',
+    clientFileLabel: 'Comprehensive-Website-Audit',
   },
   competitor_conquest: {
     tier: 'competitor_conquest',
@@ -34,6 +40,8 @@ export const AUDIT_PRODUCTS: Record<AuditTier, AuditProduct> = {
     sku: 'MSJ-WEB-COMP-001',
     priceUsd: 179,
     description: 'Full website audit plus side-by-side competitor gap analysis and opportunities.',
+    clientReportName: 'Website & Competitor SEO, UX & Conversion Audit',
+    clientFileLabel: 'Website-Competitor-Audit',
   },
 };
 

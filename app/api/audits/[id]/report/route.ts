@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const bytes = await data.arrayBuffer();
   const product = productForTier(audit.tier);
   const suffix = audit.etsy_receipt_id ? `-${audit.etsy_receipt_id}` : `-${audit.id.slice(0, 8)}`;
-  const filename = `MsSaraJo-${product.shortName.replace(/\s+/g, '-')}${suffix}.pdf`;
+  const filename = `MsSaraJo-${product.clientFileLabel}${suffix}.pdf`;
   return new Response(bytes, {
     headers: {
       'content-type': 'application/pdf',
