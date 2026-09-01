@@ -1,4 +1,4 @@
-# v4.24: the audit pipeline runs in a dedicated Netlify Background Function.
+# v4.25: the audit pipeline runs in an ESM Netlify Background Function.
 # Keep the headless-browser packages external so @sparticuz/chromium can resolve
 # its bundled Brotli assets using its normal relative-path logic.
 [functions."process-audit-background"]

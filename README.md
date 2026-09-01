@@ -399,3 +399,8 @@ All three audit tiers now run production work in a dedicated Netlify Background 
 The LLM request now receives a compact evidence representation rather than the complete stored scrape object. Full crawl data is still saved to Supabase and still feeds the report renderer; only the model payload is compacted. The model retains titles, descriptions, headings, meaningful text samples, link counts/samples, image/alt data, forms, schema types, PageSpeed metrics/opportunities, crawler directives, llms.txt context, utility findings, competitor evidence, and buyer context. This removes large robots.txt/llms.txt bodies and repetitive URL arrays that were inflating a one-page request without adding proportional audit value.
 
 Provider calls have a 120-second per-request abort ceiling and one transient retry before provider fallback. The old 180-second wrapper around the entire AI routing sequence was removed so a slow primary request can actually fail over inside the longer-lived background worker. Runtime logs include raw-versus-compacted LLM character counts.
+
+## v4.25 — Netlify ESM Chromium compatibility
+
+The audit background worker now uses an `.mts` ESM entrypoint so `@sparticuz/chromium` 149 loads correctly on Netlify/AWS Lambda Node 24 instead of being converted to CommonJS `require()`. See `NETLIFY_ESM_CHROMIUM_FIX_v4.25.md`.
+
