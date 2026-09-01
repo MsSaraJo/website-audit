@@ -45,13 +45,21 @@ function scoreGauge(value:number, tone:'emerald'|'terra'|'navy'='emerald', hero=
   </svg>`;
 }
 function notchedFrame(className = '', aspectRatio = 3) {
-  // Match the approved Quick/Comprehensive ornamental corner system.
-  // The viewBox follows the actual box aspect ratio so the quarter-circle
-  // corner geometry stays circular instead of stretching into long scoops.
+  // Keep the approved quarter-circle ornament visually consistent across
+  // wide, square, and very tall cards. A fixed radius in a 100-unit-tall
+  // viewBox made tall/narrow cards develop oversized 'scooped' corners.
+  // Scale the radius from the frame width instead, then cap it so wide cards
+  // stay delicate. The small inset also keeps Chromium from clipping strokes.
   const h = 100;
-  const w = Math.max(38, Math.round(h * aspectRatio));
-  const r = 12;
-  const d = `M${r} 0H${w-r}C${w-r} ${r*.55} ${w-r*.55} ${r} ${w} ${r}V${h-r}C${w-r*.55} ${h-r} ${w-r} ${h-r*.55} ${w-r} ${h}H${r}C${r} ${h-r*.55} ${r*.55} ${h-r} 0 ${h-r}V${r}C${r*.55} ${r} ${r} ${r*.55} ${r} 0Z`;
+  const w = Math.max(34, h * aspectRatio);
+  const inset = 0.6;
+  const left = inset;
+  const top = inset;
+  const right = w - inset;
+  const bottom = h - inset;
+  const usableWidth = right - left;
+  const r = Math.min(7, Math.max(3, usableWidth * 0.06));
+  const d = `M${left + r} ${top}H${right - r}C${right - r} ${top + r*.55} ${right - r*.55} ${top + r} ${right} ${top + r}V${bottom - r}C${right - r*.55} ${bottom - r} ${right - r} ${bottom - r*.55} ${right - r} ${bottom}H${left + r}C${left + r} ${bottom - r*.55} ${left + r*.55} ${bottom - r} ${left} ${bottom - r}V${top + r}C${left + r*.55} ${top + r} ${left + r} ${top + r*.55} ${left + r} ${top}Z`;
   return `<svg class="notched-frame ${className}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="${d}"/></svg>`;
 }
 function dottedArc(className='') { return `<svg class="decorative-arc ${className}" viewBox="0 0 100 100" aria-hidden="true"><path d="M8 88A72 72 0 0 0 91 11"/></svg>`; }

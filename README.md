@@ -306,3 +306,9 @@ Tier 2 and Tier 3 now use a higher readability floor for substantive client-faci
 
 ### v4.11 editorial voice
 Reports now use a consistent voice rule: describe the site objectively in third person/neutral language; advise the client directly using you/your for recommendations, opportunities, and next steps.
+
+## v4.12 Tier 3 frame geometry regression fix
+- Restores delicate quarter-circle ornamental corners across Tier 3.
+- Corner radius now scales from frame width and is capped, preventing oversized scoops on tall/narrow panels.
+- Adds a 0.6-unit SVG inset so Chromium PDF rendering does not clip frame strokes.
+- Preserves v4.11 editorial voice behavior and v4.10 readability changes.
