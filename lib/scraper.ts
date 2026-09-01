@@ -58,6 +58,7 @@ function pageKind(url: string) {
 function candidateScore(url: string, usedKinds: Set<string>) {
   const p = new URL(url).pathname.toLowerCase();
   if (/\/(cart|checkout|account|login|sign-in|search)(\/|$)/.test(p)) return -1000;
+  if (/\/(?:_[^/]+|wp-json|feed|tag|author|attachment)(\/|$)/.test(p)) return -900;
   if (/\/(privacy|terms|shipping|returns?|refund|polic(y|ies)|legal|accessibility-statement)(\/|$)/.test(p)) return -500;
   const kind = pageKind(url);
   const base: Record<string, number> = {
@@ -191,9 +192,20 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
         });
 
         const finalUrl = normalizedInternal(page.url(), origin) || target;
-        if (!pages.some(p => p.url === finalUrl)) {
+        // Do not spend one of the Comprehensive tier's five slots on nearly empty
+        // utility URLs. This catches orphaned toolkit/placeholder routes that may
+        // appear in a sitemap but are not strategically useful client pages. Keep
+        // short contact/booking pages when they contain a form or a real H1.
+        const thinUtility = tier !== 'quick_win'
+          && pageKind(finalUrl) === 'other'
+          && data.wordCount < 60
+          && data.forms === 0
+          && data.h1.length === 0;
+        if (!pages.some(p => p.url === finalUrl) && !thinUtility) {
           pages.push({ url: finalUrl, ...data });
           usedKinds.add(pageKind(finalUrl));
+        } else if (thinUtility) {
+          console.info(`[scraper] skipped thin utility candidate ${finalUrl} (${data.wordCount} words)`);
         }
         for (const link of data.internalLinks) {
           const normalizedLink = normalizedInternal(link, origin);

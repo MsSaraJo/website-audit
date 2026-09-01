@@ -290,3 +290,11 @@ For the premium tier, the AI response now also supports `competitorIntelligence`
 - Page 4 cross-page insight cards have stable dimensions and corner geometry.
 - Pipeline logs list every URL actually reviewed for easier debugging.
 - Browser metadata now uses `MsSaraJo | Website Audit Studio`; the legacy SiteSignal title is removed.
+
+## v4.3 Comprehensive report layout hardening
+
+- Uses aspect-correct ornamental frames for wide, regular, insight, rewrite, and callout cards so corner curves no longer stretch differently from card to card.
+- Enlarges the page-review and rewrite cards and reserves a fixed in-card status area to prevent text from crossing the ornamental border.
+- Applies bounded client-facing copy plus a modest dense-text fallback instead of allowing variable AI output to overflow fixed PDF regions.
+- Standardizes cross-page insight border treatment while preserving the sage callout fill.
+- Skips near-empty non-strategic utility URLs for multi-page audits and continues searching for a more useful page.
