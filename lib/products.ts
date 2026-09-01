@@ -35,13 +35,13 @@ export const AUDIT_PRODUCTS: Record<AuditTier, AuditProduct> = {
   },
   competitor_conquest: {
     tier: 'competitor_conquest',
-    name: 'Website + Competitor Audit',
-    shortName: 'Competitor Conquest',
+    name: 'Competitive Edge Website Audit',
+    shortName: 'Competitive Edge',
     sku: 'MSJ-WEB-COMP-001',
     priceUsd: 179,
-    description: 'Full website audit plus side-by-side competitor gap analysis and opportunities.',
-    clientReportName: 'Website & Competitor SEO, UX & Conversion Audit',
-    clientFileLabel: 'Website-Competitor-Audit',
+    description: 'Premium website and competitor intelligence audit with side-by-side market analysis, positioning gaps, white-space opportunities, and a 90-day advantage plan.',
+    clientReportName: 'Competitive Edge Website Audit',
+    clientFileLabel: 'Competitive-Edge-Website-Audit',
   },
 };
 

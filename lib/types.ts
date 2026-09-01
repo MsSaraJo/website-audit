@@ -66,10 +66,67 @@ export type AuditAnalysis = {
     primaryH1: string;
     cta: string;
   }>;
+  pageInsights?: Array<{
+    pageUrl: string;
+    pageLabel: string;
+    role: string;
+    score: number;
+    strength: string;
+    opportunity: string;
+  }>;
+  crossPageInsights?: Array<{
+    title: string;
+    finding: string;
+    why: string;
+    pageUrls: string[];
+  }>;
   competitorGap?: {
     summary: string;
     wins: string[];
     gaps: string[];
     opportunities: string[];
+  };
+  competitorIntelligence?: {
+    marketPositionScore: number;
+    executiveSummary: string;
+    biggestAdvantage: string;
+    biggestOpportunity: string;
+    dimensions: Array<{
+      label: string;
+      yourScore: number;
+      competitors: Array<{ name: string; score: number }>;
+    }>;
+    leadAreas: Array<{ title: string; detail: string }>;
+    competitorLeadAreas: Array<{ title: string; detail: string }>;
+    competitorProfiles: Array<{
+      name: string;
+      url: string;
+      positioning: string;
+      strengths: string[];
+      averageAreas: string[];
+      exposedAreas: string[];
+      doNotCopy: string[];
+    }>;
+    messagingGaps: Array<{
+      area: string;
+      yourSite: string[];
+      marketPattern: string[];
+      opportunity: string;
+    }>;
+    seoOpportunities: Array<{
+      title: string;
+      rationale: string;
+      actions: string[];
+      impact: 'high' | 'medium' | 'low';
+    }>;
+    whiteSpace: Array<{ title: string; finding: string; opportunity: string }>;
+    winStrategy: Array<{
+      title: string;
+      description: string;
+      impact: 'high' | 'medium' | 'low';
+    }>;
+    advantagePlan: Array<{ phase: string; title: string; items: string[] }>;
+    doThis: string[];
+    dontChase: string[];
   };
 };

@@ -32,7 +32,7 @@ export async function processAudit(id: string) {
     const customerContext = audit.input_data?.buyerInputs ?? undefined;
     const analysis = await analyzeAudit({ tier, site, pageSpeed, competitors, customerContext });
     await updateAudit(id, 'generating_pdf', { analysis });
-    const html = renderReportHtml({ analysis, site, pageSpeed, tier, createdAt: audit.created_at });
+    const html = renderReportHtml({ analysis, site, pageSpeed, tier, createdAt: audit.created_at, competitors });
     const pdf = await htmlToPdf(html);
     const etsyMaxFileBytes = 20 * 1024 * 1024;
     if (audit.source === 'etsy' && pdf.byteLength > etsyMaxFileBytes) {

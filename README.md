@@ -252,3 +252,25 @@ The finalized client PDF keeps the v3.7 visual design and adds several content/r
 - The AI instructions now ask for evidence-specific executive summaries and discourage generic filler.
 
 No environment variable changes are required for v3.8.
+
+## Report templates
+
+The PDF renderer now has separate client-facing layouts by tier:
+
+- `quick_win` keeps the approved v3.8 homepage-focused editorial report unchanged.
+- `full_site` uses the dedicated Comprehensive renderer in `lib/report-template-comprehensive.ts` with a 7-page structure: cover, sitewide scorecard, up-to-5 page review, cross-page insights, strategic roadmap, page-by-page copy recommendations, and technical snapshot.
+- `competitor_conquest` continues using the existing report path until its dedicated design is finalized.
+
+For comprehensive audits, the AI schema can return `pageInsights` and `crossPageInsights`. The renderer has deterministic fallbacks based on the scraped pages and action items so older/incomplete analyses still render.
+
+## v4.0 report layouts
+
+The PDF renderer now has three dedicated client-facing layouts:
+
+- `quick_win` -> the approved Homepage Audit renderer (unchanged from v3.8/v3.9).
+- `full_site` -> the dedicated Comprehensive Audit renderer for up to 5 key pages (unchanged from v3.9).
+- `competitor_conquest` -> the new 14-page **Competitive Edge Website Audit** renderer.
+
+The Competitive Edge report includes an executive competitive brief, competitor scoreboard, where-you-lead/where-they-lead analysis, competitor profiles, messaging and positioning gap analysis, SEO/content opportunity map, market white-space analysis, competitive win strategy, 90-day advantage plan, Do This / Don't Chase This guidance, page-level competitive opportunities, ready-to-use rewrites, and a technical/evidence appendix.
+
+For the premium tier, the AI response now also supports `competitorIntelligence`. The field is populated from the supplied competitor evidence; the renderer includes graceful fallbacks so a report can still render if a provider omits part of the optional premium structure.

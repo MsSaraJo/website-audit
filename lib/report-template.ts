@@ -1,6 +1,8 @@
 import type { AuditAnalysis, AuditTier, PageSpeedSummary, SiteScrape } from './types';
 import { env } from './env';
 import { productForTier } from './products';
+import { renderComprehensiveReportHtml } from './report-template-comprehensive';
+import { renderCompetitiveReportHtml } from './report-template-competitive';
 
 const e = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]!));
 
@@ -202,7 +204,9 @@ function scoreMixInsight(analysis: AuditAnalysis) {
   return `${strongest.label} is your strongest area at ${strongest.value}. ${weakest.label} at ${weakest.value} is the clearest near-term opportunity, so the roadmap gives that area priority while preserving what already works.`;
 }
 
-export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScrape; pageSpeed: PageSpeedSummary[]; tier: AuditTier; createdAt: string }) {
+export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScrape; pageSpeed: PageSpeedSummary[]; tier: AuditTier; createdAt: string; competitors?: Array<{ url: string; site: SiteScrape; pageSpeed: PageSpeedSummary[] }> }) {
+  if (input.tier === 'full_site') return renderComprehensiveReportHtml(input);
+  if (input.tier === 'competitor_conquest') return renderCompetitiveReportHtml(input);
   const { analysis, site, pageSpeed, tier } = input;
   const product = productForTier(tier);
   const preparedDate = new Date(input.createdAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
@@ -210,8 +214,7 @@ export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScr
 
   const actionGroups = chunk(analysis.actionItems, 3);
   const rewriteGroups = analysis.rewrites.length ? analysis.rewrites : [];
-  const hasCompetitor = tier === 'competitor_conquest' && !!analysis.competitorGap;
-  const totalPages = 2 + actionGroups.length + rewriteGroups.length + 1 + (hasCompetitor ? 1 : 0);
+  const totalPages = 2 + actionGroups.length + rewriteGroups.length + 1;
   let currentPage = 0;
   const pages: string[] = [];
 
@@ -325,23 +328,6 @@ export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScr
     </section>`);
   });
 
-  if (hasCompetitor && analysis.competitorGap) {
-    currentPage++;
-    const cg = analysis.competitorGap;
-    pages.push(`<section class="report-page competitor-page">
-      <div class="topbar compact">${brandLockup()}<div class="page-kicker">Competitive review</div></div>
-      <h2 class="hero-heading">Competitive Positioning</h2>
-      <p class="hero-subhead">A focused look at where your website already stands out and where competitors reveal the clearest opportunities to win.</p>
-      <div class="competitor-summary">${e(cg.summary)}</div>
-      <div class="competitor-grid">
-        <div class="competitor-card wins"><span class="competitor-label">Where you lead</span><ul>${cg.wins.map(x=>`<li>${e(x)}</li>`).join('')}</ul></div>
-        <div class="competitor-card gaps"><span class="competitor-label">Where competitors lead</span><ul>${cg.gaps.map(x=>`<li>${e(x)}</li>`).join('')}</ul></div>
-        <div class="competitor-card opportunities"><span class="competitor-label">Best opportunities</span><ul>${cg.opportunities.map(x=>`<li>${e(x)}</li>`).join('')}</ul></div>
-      </div>
-      <div class="takeaway-box competitor-takeaway">${notchedFrame('takeaway-frame', 7.1)}${sparkle('takeaway-spark emerald')}<div><strong>Where you can win</strong><p>Use these gaps as a prioritization filter: strengthen the areas where competitors are outperforming while preserving the brand and experience advantages that already make your site distinctive.</p></div></div>
-      ${pageFooter(domain, preparedDate, currentPage, totalPages)}
-    </section>`);
-  }
 
   currentPage++;
   const performanceRows = pageSpeed.map(p => `<tr><td>${e(p.strategy)}</td><td>${e(pathFor(p.url))}</td><td>${p.scores.performance ?? '&mdash;'}</td><td>${p.scores.accessibility ?? '&mdash;'}</td><td>${p.scores.seo ?? '&mdash;'}</td></tr>`).join('');
