@@ -10,7 +10,7 @@ A production-oriented Next.js/TypeScript implementation for three separate Etsy 
 
 The automated path is:
 
-**Etsy `order.paid` → signed webhook → map the purchased listing → read transaction personalization → secure crawl → PageSpeed → Gemini structured analysis → PDF → Supabase Storage → ready-for-Etsy-upload queue.**
+**Etsy `order.paid` → signed webhook → map the purchased listing → read transaction personalization → secure crawl → PageSpeed → OpenAI structured analysis (Gemini fallback) → PDF → Supabase Storage → ready-for-Etsy-upload queue.**
 
 A manual audit mode remains available for testing and direct/non-Etsy work.
 
@@ -77,7 +77,7 @@ Recommended fields for **Competitor Conquest** (uses all five available personal
 
 The competitor listing omits the platform question because the audit can infer common platform signals from the site. The adapter extracts URLs from that transaction only and treats the first URL as the customer's site and up to the next three as competitors.
 
-The named personalization answers are also passed to Gemini as `customerContext` so a stated platform or goal can influence prioritization without being treated as factual audit evidence.
+The named personalization answers are also passed to the AI analysis provider as `customerContext` so a stated platform or goal can influence prioritization without being treated as factual audit evidence.
 
 ## Email delivery
 
@@ -115,7 +115,7 @@ For a brand-new database, `001_init.sql` already contains the final schema and n
 - SSRF-aware crawling with DNS/private-IP checks and browser request interception.
 - Tiered crawl depth: Quick Win 1 page, Full Site 5 pages, Competitor Conquest 10 pages + up to 3 competitors.
 - Google PageSpeed Insights v5, mobile and desktop.
-- Gemini structured JSON analysis with customer-goal/platform context.
+- OpenAI structured JSON analysis with customer-goal/platform context, transient retries, and optional Gemini fallback.
 - Branded PDF generation and private Supabase Storage.
 - Manual/direct email delivery through Resend.
 - Etsy `awaiting_etsy_upload` fulfillment state and admin queue.
@@ -130,7 +130,7 @@ For a brand-new database, `001_init.sql` already contains the final schema and n
 1. Create a Supabase project.
 2. If new, run `supabase/migrations/001_init.sql`. If upgrading the original MVP, run `supabase/migrations/002_etsy_made_to_order.sql`.
 3. Copy `.env.example` to `.env.local` and fill in credentials.
-4. Create Google PageSpeed and Gemini API keys.
+4. Create a Google PageSpeed API key and an OpenAI API key. A Gemini key is optional as a fallback provider.
 5. Configure Resend if you will run manual audits or optional Etsy email copies.
 6. Create three separate **made-to-order digital** Etsy listings and put each listing ID in the matching environment variable.
 7. Authorize the Etsy app with the required transaction-read access and save the refresh token.
@@ -162,3 +162,9 @@ The project uses Next.js `after()` so webhooks can acknowledge quickly while the
 The crawler rejects localhost, private IPv4/IPv6 ranges, and private DNS resolutions. It also intercepts browser subresource requests to reduce SSRF exposure. Keep this protection enabled even when buyers are expected to submit ordinary public websites.
 
 Generated reports are private in Supabase Storage. The admin PDF endpoint requires `ADMIN_TOKEN` and streams the stored report rather than relying on a long-lived public URL.
+
+## Troubleshooting: manual audit returns `/api/audits` 400/500
+
+The manual audit route validates the request and target URL before inserting a row into Supabase. Updated builds return the actual validation or Supabase error in the UI instead of collapsing non-`Error` objects into `Invalid request`.
+
+If an existing Supabase project was created from the original schema, run `supabase/migrations/002_etsy_made_to_order.sql` before testing the updated app. The updated pipeline expects the added Etsy fulfillment columns (including `etsy_transaction_id`, `etsy_listing_id`, `etsy_quantity`, `email_delivered_at`, and `etsy_upload_confirmed_at`) and the `awaiting_etsy_upload` audit status.

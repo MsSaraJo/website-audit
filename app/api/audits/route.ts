@@ -21,6 +21,20 @@ function authorized(req: Request) {
   return req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') === env.ADMIN_TOKEN;
 }
 
+function errorText(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    return error.issues.map(issue => `${issue.path.join('.') || 'request'}: ${issue.message}`).join('; ');
+  }
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    const parts = [value.message, value.details, value.hint]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+    if (parts.length) return parts.join(' — ');
+  }
+  return String(error || 'Unknown error');
+}
+
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const url = new URL(req.url);
@@ -54,15 +68,45 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  let body: unknown;
   try {
-    const input = inputSchema.parse(await req.json());
-    const url = await assertPublicUrl(input.url);
-    const competitorUrls = [];
-    for (const c of input.competitorUrls) competitorUrls.push(await assertPublicUrl(c));
+    body = await req.json();
+  } catch (error) {
+    return NextResponse.json({ error: `Request JSON could not be read: ${errorText(error)}` }, { status: 400 });
+  }
+
+  const parsed = inputSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: `Request validation failed: ${errorText(parsed.error)}` }, { status: 400 });
+  }
+
+  const input = parsed.data;
+  let url: string;
+  const competitorUrls: string[] = [];
+
+  try {
+    url = await assertPublicUrl(input.url);
+  } catch (error) {
+    return NextResponse.json({ error: `Website URL validation failed: ${errorText(error)}` }, { status: 400 });
+  }
+
+  try {
+    for (const competitor of input.competitorUrls) competitorUrls.push(await assertPublicUrl(competitor));
+  } catch (error) {
+    return NextResponse.json({ error: `Competitor URL validation failed: ${errorText(error)}` }, { status: 400 });
+  }
+
+  try {
     const audit = await createAudit({ source: 'manual', email: input.email, url, tier: input.tier, competitorUrls });
-    after(() => processAudit(audit.id).catch(console.error));
+    after(() => processAudit(audit.id).catch(error => console.error(`[audit ${audit.id}] pipeline failed`, error)));
     return NextResponse.json({ id: audit.id, status: audit.status }, { status: 202 });
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Invalid request' }, { status: 400 });
+  } catch (error) {
+    const message = errorText(error);
+    console.error('[manual audit] database insert failed', error);
+    const migrationHint = /etsy_transaction_id|etsy_listing_id|etsy_listing_title|etsy_sku|etsy_quantity|email_delivered_at|schema cache/i.test(message)
+      ? ' Your Supabase database appears to be missing the Etsy made-to-order schema upgrade. Run supabase/migrations/002_etsy_made_to_order.sql in the Supabase SQL Editor, then retry.'
+      : '';
+    return NextResponse.json({ error: `Could not create the audit: ${message}.${migrationHint}` }, { status: 500 });
   }
 }
