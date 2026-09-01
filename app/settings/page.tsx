@@ -1,0 +1,6 @@
+'use client';
+import { AdminShell } from '@/components/AdminShell';
+import { Frame, Sparkle } from '@/components/Frame';
+import { SectionTitle } from '@/components/SectionTitle';
+import { useAdminToken } from '@/components/useAdminToken';
+export default function Settings(){const {token,setToken}=useAdminToken();return <AdminShell><SectionTitle eyebrow="STUDIO SETTINGS" title="Workspace Settings" script="Quiet controls, clear boundaries." body="Manage browser-local admin access and keep the internal workspace separate from client-facing report content."/><div className="settings-grid"><Frame tone="coral" className="settings-card"><div className="frame-title"><Sparkle/> ADMIN TOKEN</div><p>The internal API uses this token to authorize audit and report actions.</p><input type="password" value={token} onChange={e=>setToken(e.target.value)} placeholder="Admin token"/><small>Stored in this browser only.</small></Frame><Frame tone="green" className="settings-card"><div className="frame-title"><Sparkle/> BRAND SYSTEM</div><p>This interface intentionally mirrors the report family: warm ivory, navy editorial type, terracotta, emerald, gold, score arcs, sparkles, and quarter-notch frames.</p><span className="brand-lock">MsSaraJo Website Insight Studio</span></Frame></div></AdminShell>}

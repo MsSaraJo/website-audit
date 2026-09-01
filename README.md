@@ -312,3 +312,21 @@ Reports now use a consistent voice rule: describe the site objectively in third 
 - Corner radius now scales from frame width and is capped, preventing oversized scoops on tall/narrow panels.
 - Adds a 0.6-unit SVG inset so Chromium PDF rendering does not clip frame strokes.
 - Preserves v4.11 editorial voice behavior and v4.10 readability changes.
+
+## v4.14 branded studio UI
+
+The internal web application now mirrors the approved MsSaraJo report system instead of using a generic admin-dashboard visual language.
+
+New workspace routes:
+- `/dashboard`
+- `/audits/new`
+- `/reports`
+- `/reports/[id]`
+- `/queue`
+- `/settings`
+
+`/` redirects to `/dashboard`.
+
+The UI uses the actual MsSaraJo horizontal logo in `public/mssarajo-logo.png`, warm ivory/paper surfaces, navy editorial typography, terracotta/emerald/gold tier accents, score arcs, sparkles, and report-inspired ornamental frames.
+
+See `URL_STRUCTURE_v4.14.md` for the route map and recommended production subdomain.
