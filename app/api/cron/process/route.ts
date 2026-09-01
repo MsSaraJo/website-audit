@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { db } from '@/lib/db';
-import { processAudit } from '@/lib/pipeline';
+import { dispatchAudit } from '@/lib/audit-dispatch';
 
 export const runtime = 'nodejs';
-export const maxDuration = 800;
 
 export async function GET(req: Request) {
   if (req.headers.get('authorization') !== `Bearer ${env.CRON_SECRET}`) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -15,8 +14,12 @@ export async function GET(req: Request) {
   const eligible = (data ?? []).filter((row: any) => row.status === 'pending' || row.status === 'failed' || new Date(row.updated_at).getTime() < cutoff).slice(0, 2);
   const results = [];
   for (const row of eligible) {
-    try { await processAudit(row.id); results.push({ id: row.id, ok: true }); }
-    catch (e) { results.push({ id: row.id, ok: false, error: e instanceof Error ? e.message : String(e) }); }
+    try {
+      const dispatchMode = await dispatchAudit(row.id, req.url);
+      results.push({ id: row.id, ok: true, dispatchMode });
+    } catch (e) {
+      results.push({ id: row.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+    }
   }
-  return NextResponse.json({ processed: results });
+  return NextResponse.json({ dispatched: results });
 }

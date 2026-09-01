@@ -181,7 +181,7 @@ The page supports:
 
 ## Deployment note
 
-The project uses Next.js `after()` so webhooks can acknowledge quickly while the audit begins, plus a recovery cron for stalled jobs. For larger order volume, invoke the same `processAudit()` function from a durable queue/worker rather than relying on request-lifetime background work.
+Production Netlify deployments dispatch every audit tier to `netlify/functions/process-audit-background.ts`, a true Netlify Background Function. The manual API and Etsy webhook receive the immediate asynchronous acknowledgement while scraping, PageSpeed, AI analysis, PDF generation, upload, and notification continue in the background worker. Plain `npm run dev` retains Next.js `after()` only as a local-development fallback. Keep the recovery cron enabled so stale or failed audits can be re-dispatched.
 
 ## Security notes
 
@@ -389,4 +389,13 @@ Etsy's Webhook Portal can send a synthetic `order.paid` event whose test shop is
 
 Audit status now advances out of `scraping` immediately after the website crawl. The Studio also exposes a finer `pipelineStage` while analysis is running (PageSpeed measurement, competitor evidence, AI analysis, PDF generation). Major stages have explicit time limits and failures are stored on the audit instead of intentionally waiting forever.
 
-Keep `/api/cron/process` scheduled in production. It is the safety net for a process that is terminated by the hosting platform before JavaScript can record a failure.
+Keep `/api/cron/process` scheduled in production. In v4.24 it re-dispatches eligible audits to the same Background Function instead of executing the long pipeline inside the cron request.
+
+
+## Netlify background pipeline (v4.24)
+
+All three audit tiers now run production work in a dedicated Netlify Background Function rather than inside a synchronous Next.js request lifetime. Netlify acknowledges the function asynchronously while `processAudit()` continues in the background. The worker is protected with the existing `CRON_SECRET`, and failed worker executions rethrow after persisting the audit failure so Netlify's background retry behavior can run while `claim_audit` prevents duplicate concurrent work.
+
+The LLM request now receives a compact evidence representation rather than the complete stored scrape object. Full crawl data is still saved to Supabase and still feeds the report renderer; only the model payload is compacted. The model retains titles, descriptions, headings, meaningful text samples, link counts/samples, image/alt data, forms, schema types, PageSpeed metrics/opportunities, crawler directives, llms.txt context, utility findings, competitor evidence, and buyer context. This removes large robots.txt/llms.txt bodies and repetitive URL arrays that were inflating a one-page request without adding proportional audit value.
+
+Provider calls have a 120-second per-request abort ceiling and one transient retry before provider fallback. The old 180-second wrapper around the entire AI routing sequence was removed so a slow primary request can actually fail over inside the longer-lived background worker. Runtime logs include raw-versus-compacted LLM character counts.

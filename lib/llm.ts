@@ -12,7 +12,10 @@ type AuditInput = {
 
 type Provider = 'openai' | 'gemini';
 
-const RETRY_DELAYS_MS = [1500, 4000];
+// Background execution gives the model room to finish, but each provider call still
+// has a hard ceiling so a degraded upstream cannot consume the full 15-minute worker.
+const PROVIDER_REQUEST_TIMEOUT_MS = 120_000;
+const RETRY_DELAYS_MS = [2000];
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -35,8 +38,112 @@ Make executiveSummary specific to the supplied evidence and this particular webs
 If customerContext contains a stated platform or business goal, use it only to prioritize otherwise evidence-supported recommendations; do not invent facts from it.`;
 }
 
+const textBudgets: Record<AuditTier, number> = {
+  quick_win: 7000,
+  full_site: 4500,
+  competitor_conquest: 3500,
+};
+
+function compactRobotsTxt(value: string | null) {
+  if (!value) return null;
+  // Preserve crawler directives and sitemap signals instead of sending comments,
+  // vendor boilerplate, or an entire unusually large robots.txt file to the model.
+  const directives = value
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => /^(user-agent|allow|disallow|sitemap|crawl-delay|host|clean-param)\s*:/i.test(line))
+    .slice(0, 100)
+    .join('\n');
+  return (directives || value).slice(0, 6000);
+}
+
+function compactPage(page: SiteScrape['pages'][number], tier: AuditTier, competitor = false) {
+  const textLimit = competitor ? 3000 : textBudgets[tier];
+  const internalSampleLimit = tier === 'quick_win' && !competitor ? 30 : 18;
+  return {
+    url: page.url,
+    title: page.title,
+    metaDescription: page.metaDescription,
+    canonical: page.canonical,
+    robotsMeta: page.robotsMeta,
+    viewport: page.viewport,
+    h1: page.h1.slice(0, 8),
+    h2: page.h2.slice(0, 12),
+    textSample: page.textSample.slice(0, textLimit),
+    wordCount: page.wordCount,
+    internalLinkCount: page.internalLinks.length,
+    internalLinkSamples: page.internalLinks.slice(0, internalSampleLimit),
+    externalLinkCount: page.externalLinks.length,
+    externalLinkSamples: page.externalLinks.slice(0, 10),
+    imageCount: page.imageCount,
+    imagesMissingAlt: page.imagesMissingAlt,
+    buttons: page.buttons.slice(0, 15),
+    forms: page.forms,
+    jsonLdTypes: page.jsonLdTypes.slice(0, 20),
+    lang: page.lang,
+  };
+}
+
+function compactUtilityPage(page: SiteScrape['pages'][number]) {
+  return {
+    url: page.url,
+    title: page.title,
+    metaDescription: page.metaDescription,
+    canonical: page.canonical,
+    robotsMeta: page.robotsMeta,
+    h1: page.h1.slice(0, 4),
+    textSample: page.textSample.slice(0, 1000),
+    wordCount: page.wordCount,
+    forms: page.forms,
+    jsonLdTypes: page.jsonLdTypes.slice(0, 10),
+  };
+}
+
+function compactSite(site: SiteScrape, tier: AuditTier, competitor = false) {
+  return {
+    startUrl: site.startUrl,
+    pages: site.pages.map(page => compactPage(page, tier, competitor)),
+    utilityFindings: (site.utilityFindings ?? []).slice(0, 8).map(compactUtilityPage),
+    robotsTxt: compactRobotsTxt(site.robotsTxt),
+    // llms.txt is itself intended as concise model-readable site context, so retain
+    // a meaningful sample while guarding against accidental giant/generated files.
+    llmsTxt: site.llmsTxt?.slice(0, competitor ? 4000 : 7000) ?? null,
+    hasSitemap: site.hasSitemap,
+  };
+}
+
+function compactPageSpeed(results: PageSpeedSummary[]) {
+  return results.map(result => ({
+    url: result.url,
+    strategy: result.strategy,
+    scores: result.scores,
+    metrics: result.metrics,
+    opportunities: result.opportunities.slice(0, 6),
+  }));
+}
+
+function compactAuditInput(input: AuditInput) {
+  return {
+    tier: input.tier,
+    site: compactSite(input.site, input.tier),
+    pageSpeed: compactPageSpeed(input.pageSpeed),
+    competitors: (input.competitors ?? []).slice(0, 3).map(competitor => ({
+      url: competitor.url,
+      site: compactSite(competitor.site, 'quick_win', true),
+      pageSpeed: compactPageSpeed(competitor.pageSpeed),
+    })),
+    customerContext: input.customerContext,
+  };
+}
+
 function auditData(input: AuditInput) {
-  return `AUDIT DATA:\n${JSON.stringify(input).slice(0, 180000)}`;
+  const rawChars = JSON.stringify(input).length;
+  const compactJson = JSON.stringify(compactAuditInput(input));
+  return {
+    text: `AUDIT DATA:\n${compactJson}`,
+    rawChars,
+    compactChars: compactJson.length,
+  };
 }
 
 function validateAnalysis(value: unknown, provider: string): AuditAnalysis {
@@ -64,7 +171,8 @@ async function callOpenAI(input: AuditInput, auditId?: string, attempt = 1): Pro
   const prefix = logPrefix(auditId, 'openai');
   const requestStartedAt = Date.now();
   const instructions = instructionsFor(input.tier);
-  const data = auditData(input);
+  const auditPayload = auditData(input);
+  const data = auditPayload.text;
   const requestBody = JSON.stringify({
     model,
     instructions,
@@ -84,7 +192,7 @@ async function callOpenAI(input: AuditInput, auditId?: string, attempt = 1): Pro
     store: false,
   });
 
-  console.info(`${prefix} request started; attempt=${attempt}, tier=${input.tier}, model=${model}, auditDataChars=${data.length}, requestChars=${requestBody.length}`);
+  console.info(`${prefix} request started; attempt=${attempt}, tier=${input.tier}, model=${model}, rawAuditChars=${auditPayload.rawChars}, compactAuditChars=${auditPayload.compactChars}, auditDataChars=${data.length}, requestChars=${requestBody.length}`);
 
   try {
     const fetchStartedAt = Date.now();
@@ -95,7 +203,7 @@ async function callOpenAI(input: AuditInput, auditId?: string, attempt = 1): Pro
         authorization: `Bearer ${env.OPENAI_API_KEY}`,
       },
       body: requestBody,
-      signal: AbortSignal.timeout(180000),
+      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
     });
     console.info(`${prefix} HTTP response received in ${Date.now() - fetchStartedAt}ms; attempt=${attempt}, status=${res.status}, model=${model}`);
 
@@ -138,7 +246,8 @@ async function callGemini(input: AuditInput, auditId?: string, attempt = 1): Pro
 
   const prefix = logPrefix(auditId, 'gemini');
   const requestStartedAt = Date.now();
-  const prompt = `${instructionsFor(input.tier)}\n\n${auditData(input)}`;
+  const auditPayload = auditData(input);
+  const prompt = `${instructionsFor(input.tier)}\n\n${auditPayload.text}`;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`;
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
@@ -149,7 +258,7 @@ async function callGemini(input: AuditInput, auditId?: string, attempt = 1): Pro
     },
   });
 
-  console.info(`${prefix} request started; attempt=${attempt}, tier=${input.tier}, model=${env.GEMINI_MODEL}, promptChars=${prompt.length}, requestChars=${requestBody.length}`);
+  console.info(`${prefix} request started; attempt=${attempt}, tier=${input.tier}, model=${env.GEMINI_MODEL}, rawAuditChars=${auditPayload.rawChars}, compactAuditChars=${auditPayload.compactChars}, promptChars=${prompt.length}, requestChars=${requestBody.length}`);
 
   try {
     const fetchStartedAt = Date.now();
@@ -157,7 +266,7 @@ async function callGemini(input: AuditInput, auditId?: string, attempt = 1): Pro
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
       body: requestBody,
-      signal: AbortSignal.timeout(180000),
+      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
     });
     console.info(`${prefix} HTTP response received in ${Date.now() - fetchStartedAt}ms; attempt=${attempt}, status=${res.status}, model=${env.GEMINI_MODEL}`);
 

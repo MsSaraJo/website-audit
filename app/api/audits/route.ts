@@ -1,14 +1,13 @@
-import { after, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { env } from '@/lib/env';
 import { db } from '@/lib/db';
 import { assertPublicUrl } from '@/lib/url-security';
 import { createAudit } from '@/lib/repository';
-import { processAudit } from '@/lib/pipeline';
+import { dispatchAudit } from '@/lib/audit-dispatch';
 import { productForTier } from '@/lib/products';
 
 export const runtime = 'nodejs';
-export const maxDuration = 800;
 
 const inputSchema = z.object({
   email: z.string().email().optional(),
@@ -99,10 +98,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Competitor URL validation failed: ${errorText(error)}` }, { status: 400 });
   }
 
+  let audit: any;
   try {
-    const audit = await createAudit({ source: 'manual', email: input.email ?? null, url, tier: input.tier, competitorUrls });
-    after(() => processAudit(audit.id).catch(error => console.error(`[audit ${audit.id}] pipeline failed`, error)));
-    return NextResponse.json({ id: audit.id, status: audit.status }, { status: 202 });
+    audit = await createAudit({ source: 'manual', email: input.email ?? null, url, tier: input.tier, competitorUrls });
   } catch (error) {
     const message = errorText(error);
     console.error('[manual audit] database insert failed', error);
@@ -110,5 +108,18 @@ export async function POST(req: Request) {
       ? ' Your Supabase database appears to be missing the Etsy made-to-order schema upgrade. Run supabase/migrations/002_etsy_made_to_order.sql in the Supabase SQL Editor, then retry.'
       : '';
     return NextResponse.json({ error: `Could not create the audit: ${message}.${migrationHint}` }, { status: 500 });
+  }
+
+  try {
+    const dispatchMode = await dispatchAudit(audit.id, req.url);
+    return NextResponse.json({ id: audit.id, status: audit.status, dispatchMode }, { status: 202 });
+  } catch (error) {
+    const message = errorText(error);
+    console.error(`[audit ${audit.id}] background dispatch failed; leaving audit pending for recovery cron`, error);
+    return NextResponse.json({
+      id: audit.id,
+      status: audit.status,
+      error: `Audit created, but the background worker did not accept the first dispatch: ${message}. The recovery cron can retry it.`,
+    }, { status: 202 });
   }
 }

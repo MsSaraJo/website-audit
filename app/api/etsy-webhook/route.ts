@@ -1,14 +1,13 @@
-import { after, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { db } from '@/lib/db';
 import { verifyEtsyWebhook } from '@/lib/etsy-webhook';
 import { getEtsyOrderContext, isEtsyShopOwnershipError } from '@/lib/etsy';
 import { createAudit } from '@/lib/repository';
-import { processAudit } from '@/lib/pipeline';
+import { dispatchAudit } from '@/lib/audit-dispatch';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
-export const maxDuration = 800;
 
 export async function POST(req: Request) {
   if (!env.ETSY_WEBHOOK_SECRET) return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
@@ -77,7 +76,7 @@ export async function POST(req: Request) {
         },
       });
       auditIds.push(audit.id);
-      after(() => processAudit(audit.id).catch(console.error));
+      await dispatchAudit(audit.id, req.url);
     }
 
     await db.from('webhook_events').update({

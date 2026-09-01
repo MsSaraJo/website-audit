@@ -167,11 +167,10 @@ export async function processAudit(id: string) {
     const customerContext = audit.input_data?.buyerInputs ?? undefined;
     const llmStartedAt = Date.now();
     console.info(`[audit ${id}] [${tier}] [llm] analysis started; pages=${site.pages.length}, pagespeedResults=${pageSpeed.length}, competitors=${competitors.length}`);
-    const analysis = await withTimeout(
-      'AI analysis',
-      180_000,
-      analyzeAudit({ tier, site, pageSpeed, competitors, customerContext }, id),
-    );
+    // Provider calls have their own abort/retry ceilings. Do not wrap the whole
+    // provider/fallback sequence in the old 180s synchronous-function timeout;
+    // the Netlify Background Function now owns the long-running job lifecycle.
+    const analysis = await analyzeAudit({ tier, site, pageSpeed, competitors, customerContext }, id);
     console.info(`[audit ${id}] [${tier}] [llm] analysis complete in ${formatMs(elapsedMs(llmStartedAt))}; overallScore=${analysis.overallScore}, actionItems=${analysis.actionItems.length}, quickWins=${analysis.quickWins.length}`);
 
     currentStage = 'persist_pdf_stage';
