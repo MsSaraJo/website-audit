@@ -53,6 +53,11 @@ export async function claimAudit(id: string): Promise<boolean> {
   return Boolean(data);
 }
 
+export async function touchAudit(id: string, patch: Record<string, unknown> = {}) {
+  const { error } = await db.from('audits').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function updateAudit(id: string, status: AuditStatus, patch: Record<string, unknown> = {}) {
   const { error } = await db.from('audits').update({ status, ...patch, updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw error;

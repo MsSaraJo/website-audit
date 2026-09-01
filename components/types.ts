@@ -12,6 +12,8 @@ export type AuditSummary = {
   score?: number | null;
   error?: string | null;
   hasReport: boolean;
+  pipelineStage?: string | null;
+  pipelineStageStartedAt?: string | null;
 };
 
 export type AuditResult = {
@@ -25,4 +27,6 @@ export type AuditResult = {
   reportDownloadUrl?: string | null;
   etsyReceiptId?: string | null;
   error?: string | null;
+  pipelineStage?: string | null;
+  pipelineStageStartedAt?: string | null;
 };

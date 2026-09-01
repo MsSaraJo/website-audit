@@ -132,6 +132,7 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
   const robotsTxt = await fetchText(`${root}/robots.txt`);
   const sitemapCandidates = tier === 'quick_win' ? [] : await discoverFromSitemaps(root, robotsTxt);
 
+  console.info(`[scraper] launching browser for ${startUrl} (${tier})`);
   const browser = await launchBrowser();
   const candidates = new Set<string>([startUrl]);
   sitemapCandidates.forEach(url => candidates.add(url));
@@ -155,6 +156,7 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
       target = normalized;
       seen.add(target);
 
+      console.info(`[scraper] rendering ${target}`);
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 1100 });
       await page.setUserAgent('Mozilla/5.0 (compatible; MsSaraJoAuditBot/1.0)');
@@ -230,14 +232,18 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
           const normalizedLink = normalizedInternal(link, origin);
           if (normalizedLink && !seen.has(normalizedLink)) candidates.add(normalizedLink);
         }
-      } catch {
+      } catch (error) {
         // A broken candidate should not prevent the crawler from trying the next page.
+        console.warn(`[scraper] could not render ${target}`, error);
       } finally {
         await page.close();
       }
     }
   } finally {
-    await browser.close();
+    await Promise.race([
+      browser.close(),
+      new Promise<void>(resolve => setTimeout(resolve, 10_000)),
+    ]).catch(() => undefined);
   }
 
   if (!pages.length) throw new Error('Could not render the target website');

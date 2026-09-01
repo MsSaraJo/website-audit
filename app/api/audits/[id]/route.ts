@@ -24,6 +24,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       etsyTransactionId: audit.etsy_transaction_id ?? null,
       etsyUploadConfirmedAt: audit.etsy_upload_confirmed_at ?? null,
       error: audit.error_message ?? null,
+      pipelineStage: audit.input_data?.pipelineStage ?? null,
+      pipelineStageStartedAt: audit.input_data?.pipelineStageStartedAt ?? null,
     });
   } catch {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -384,3 +384,9 @@ The application constructs the combined header server-side. Do not paste `keystr
 ## Etsy webhook test behavior (v4.21)
 
 Etsy's Webhook Portal can send a synthetic `order.paid` event whose test shop is not owned by the connected seller. After the webhook signature is verified, the app acknowledges that synthetic ownership error as a successful test rather than returning a generic 500. Real paid-order webhooks continue through the receipt and transaction lookup flow.
+
+## Pipeline progress and recovery (v4.22)
+
+Audit status now advances out of `scraping` immediately after the website crawl. The Studio also exposes a finer `pipelineStage` while analysis is running (PageSpeed measurement, competitor evidence, AI analysis, PDF generation). Major stages have explicit time limits and failures are stored on the audit instead of intentionally waiting forever.
+
+Keep `/api/cron/process` scheduled in production. It is the safety net for a process that is terminated by the hosting platform before JavaScript can record a failure.

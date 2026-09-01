@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const url = new URL(req.url);
   const status = url.searchParams.get('status');
-  let query = db.from('audits').select('id,source,status,tier,target_url,created_at,updated_at,etsy_receipt_id,etsy_transaction_id,etsy_listing_id,etsy_listing_title,etsy_sku,etsy_quantity,report_path,error_message,analysis').order('created_at', { ascending: false }).limit(100);
+  let query = db.from('audits').select('id,source,status,tier,target_url,created_at,updated_at,etsy_receipt_id,etsy_transaction_id,etsy_listing_id,etsy_listing_title,etsy_sku,etsy_quantity,report_path,error_message,analysis,input_data').order('created_at', { ascending: false }).limit(100);
   if (status) query = query.eq('status', status);
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -62,6 +62,8 @@ export async function GET(req: Request) {
       score: audit.analysis?.overallScore ?? null,
       error: audit.error_message,
       hasReport: Boolean(audit.report_path),
+      pipelineStage: audit.input_data?.pipelineStage ?? null,
+      pipelineStageStartedAt: audit.input_data?.pipelineStageStartedAt ?? null,
     })),
   });
 }
