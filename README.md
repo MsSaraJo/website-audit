@@ -79,19 +79,28 @@ The competitor listing omits the platform question because the audit can infer c
 
 The named personalization answers are also passed to the AI analysis provider as `customerContext` so a stated platform or goal can influence prioritization without being treated as factual audit evidence.
 
-## Email delivery
+## Admin email notifications (no paid email service)
 
-An Etsy audit no longer requires `buyer_email` to exist. That field can be restricted for some Etsy app access levels, and Etsy itself will notify the buyer when you complete the made-to-order order in Shop Manager.
+Customer email delivery has been removed. Etsy remains the authoritative delivery channel for paid Etsy orders: when the report is ready, upload the generated PDF to the buyer's made-to-order digital order and complete it in Etsy.
 
-Set:
+The app can optionally send **you** an email notification through your own Gmail or Google Workspace mailbox when an audit finishes. This uses Gmail SMTP and does not require Resend or another transactional-email service.
+
+Configure:
 
 ```text
-ETSY_EMAIL_COPY_ENABLED=false
+ADMIN_NOTIFICATION_EMAIL=you@example.com
+SMTP_HOST=smtp.fatcow.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=you@example.com
+SMTP_PASSWORD=YOUR_MAILBOX_PASSWORD
 ```
 
-for the recommended Etsy workflow. If you have authorized buyer-email access and want a courtesy email copy as well, set it to `true` and configure Resend.
+`ADMIN_NOTIFICATION_EMAIL` is where you want the ready notification delivered. `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASSWORD` configure the authenticated outgoing mailbox. For legacy FatCow/Network Solutions hosting, `smtp.fatcow.com` on port `587` with TLS is the normal starting point. Use the full mailbox address as the SMTP username.
 
-Manual audits still use the supplied email address for delivery.
+The notification includes the audit product, target website, score, Etsy receipt/listing/SKU when available, and a private 7-day PDF link. Email notification errors are logged but never change a completed report to `failed`.
+
+Manual tests no longer require a customer email address.
 
 ## Database migration if you already ran the original schema
 
@@ -117,7 +126,7 @@ For a brand-new database, `001_init.sql` already contains the final schema and n
 - Google PageSpeed Insights v5, mobile and desktop.
 - OpenAI structured JSON analysis with customer-goal/platform context, transient retries, and optional Gemini fallback.
 - Branded PDF generation and private Supabase Storage.
-- Manual/direct email delivery through Resend.
+- Free admin-only ready notifications through Gmail SMTP; no customer email service required.
 - Etsy `awaiting_etsy_upload` fulfillment state and admin queue.
 - Authenticated PDF download endpoint so the report remains retrievable even after a temporary signed URL expires.
 - Etsy 20 MB per-file guard so an oversized generated report does not enter the ready-to-upload queue.
@@ -131,7 +140,7 @@ For a brand-new database, `001_init.sql` already contains the final schema and n
 2. If new, run `supabase/migrations/001_init.sql`. If upgrading the original MVP, run `supabase/migrations/002_etsy_made_to_order.sql`.
 3. Copy `.env.example` to `.env.local` and fill in credentials.
 4. Create a Google PageSpeed API key and an OpenAI API key. A Gemini key is optional as a fallback provider.
-5. Configure Resend if you will run manual audits or optional Etsy email copies.
+5. Optional: configure authenticated SMTP admin notifications with `ADMIN_NOTIFICATION_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASSWORD`.
 6. Create three separate **made-to-order digital** Etsy listings and put each listing ID in the matching environment variable.
 7. Authorize the Etsy app with the required transaction-read access and save the refresh token.
 8. Configure Etsy's `order.paid` webhook endpoint as `https://YOUR_DOMAIN/api/etsy-webhook`.

@@ -32,7 +32,6 @@ const PRODUCTS = [
 
 export default function Home() {
   const [token,setToken]=useState('');
-  const [email,setEmail]=useState('');
   const [url,setUrl]=useState('');
   const [tier,setTier]=useState('quick_win');
   const [competitors,setCompetitors]=useState('');
@@ -44,10 +43,20 @@ export default function Home() {
   async function submit(e: FormEvent){
     e.preventDefault();
     setBusy(true); setResult(null);
-    const r=await fetch('/api/audits',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${token}`},body:JSON.stringify({email,url,tier,competitorUrls:competitors.split('\n').map(x=>x.trim()).filter(Boolean)})});
-    const j=await r.json(); setBusy(false);
-    if(!r.ok){setResult({id:'',status:'error',error:j.error});return;}
-    setResult(j);
+    try {
+      const r=await fetch('/api/audits',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${token}`},body:JSON.stringify({url,tier,competitorUrls:competitors.split('\n').map(x=>x.trim()).filter(Boolean)})});
+      const text=await r.text();
+      let j: any = {};
+      if(text){
+        try { j=JSON.parse(text); } catch { j={error:text}; }
+      }
+      setBusy(false);
+      if(!r.ok){setResult({id:'',status:'error',error:j.error || `Request failed with HTTP ${r.status}${text?'':'. The server returned an empty response; check the terminal for the server-side error.'}`});return;}
+      setResult(j);
+    } catch (error) {
+      setBusy(false);
+      setResult({id:'',status:'error',error:error instanceof Error ? error.message : 'Could not start audit.'});
+    }
   }
 
   async function loadQueue(){
@@ -92,10 +101,7 @@ export default function Home() {
       <h2>Manual test audit</h2>
       <form onSubmit={submit}>
         <label>Admin token<input type="password" value={token} onChange={e=>setToken(e.target.value)} required/></label>
-        <div className="grid">
-          <label>Customer email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
-          <label>Website URL<input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com" required/></label>
-        </div>
+        <label>Website URL<input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com" required/></label>
         <label>Audit offering<select value={tier} onChange={e=>setTier(e.target.value)}>{PRODUCTS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}</select></label>
         {tier==='competitor_conquest'&&<label>Competitor URLs, one per line<textarea value={competitors} onChange={e=>setCompetitors(e.target.value)} rows={4}/></label>}
         <button disabled={busy}>{busy?'Starting…':'Run audit'}</button>

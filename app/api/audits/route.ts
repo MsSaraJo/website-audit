@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 800;
 
 const inputSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().optional(),
   url: z.string().min(4),
   tier: z.enum(['quick_win', 'full_site', 'competitor_conquest']),
   competitorUrls: z.array(z.string()).max(3).default([]),
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const audit = await createAudit({ source: 'manual', email: input.email, url, tier: input.tier, competitorUrls });
+    const audit = await createAudit({ source: 'manual', email: input.email ?? null, url, tier: input.tier, competitorUrls });
     after(() => processAudit(audit.id).catch(error => console.error(`[audit ${audit.id}] pipeline failed`, error)));
     return NextResponse.json({ id: audit.id, status: audit.status }, { status: 202 });
   } catch (error) {

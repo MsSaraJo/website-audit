@@ -4,8 +4,7 @@ import { runPageSpeed } from './pagespeed';
 import { analyzeAudit } from './llm';
 import { renderReportHtml } from './report-template';
 import { htmlToPdf } from './pdf';
-import { emailReport, uploadReport } from './delivery';
-import { env } from './env';
+import { notifyAdmin, uploadReport } from './delivery';
 import { assertPublicUrl } from './url-security';
 import type { AuditTier } from './types';
 
@@ -41,30 +40,32 @@ export async function processAudit(id: string) {
     }
     const uploaded = await uploadReport(id, pdf);
 
-    let emailDeliveredAt: string | null = null;
-    const shouldEmail = audit.source === 'manual' || (audit.source === 'etsy' && env.ETSY_EMAIL_COPY_ENABLED === 'true');
-    if (shouldEmail && audit.customer_email) {
-      try {
-        await emailReport(audit.customer_email, uploaded.url, analysis.overallScore, tier);
-        emailDeliveredAt = new Date().toISOString();
-      } catch (emailError) {
-        // The report is already generated and safely stored. Email is a delivery convenience,
-        // so a temporary credential/provider problem must not destroy an otherwise successful audit.
-        console.error(`[audit ${id}] email delivery failed; report remains available`, emailError);
-      }
+    try {
+      await notifyAdmin({
+        auditId: id,
+        reportUrl: uploaded.url,
+        score: analysis.overallScore,
+        tier,
+        source: audit.source,
+        targetUrl: audit.target_url,
+        etsyReceiptId: audit.etsy_receipt_id,
+        etsyListingTitle: audit.etsy_listing_title,
+        etsySku: audit.etsy_sku,
+      });
+    } catch (notificationError) {
+      // Admin notification is a convenience. Never fail a completed customer report because Gmail is unavailable.
+      console.error(`[audit ${id}] admin email notification failed; report remains available`, notificationError);
     }
 
     if (audit.source === 'etsy') {
       await updateAudit(id, 'awaiting_etsy_upload', {
         report_path: uploaded.path,
         report_url: uploaded.url,
-        email_delivered_at: emailDeliveredAt,
       });
     } else {
       await updateAudit(id, 'completed', {
         report_path: uploaded.path,
         report_url: uploaded.url,
-        email_delivered_at: emailDeliveredAt,
         completed_at: new Date().toISOString(),
       });
     }
