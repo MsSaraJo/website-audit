@@ -157,7 +157,7 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
 
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 1100 });
-      await page.setUserAgent('Mozilla/5.0 (compatible; MsSaraJoAuditBot/1.0; +https://saraejohnston.com)');
+      await page.setUserAgent('Mozilla/5.0 (compatible; MsSaraJoAuditBot/1.0)');
       await hardenPage(page);
       try {
         await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });

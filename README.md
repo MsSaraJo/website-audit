@@ -1,15 +1,12 @@
 
-## v4.15 nested deployment / base-path hardening
+## Optional base-path support
 
-The branded studio is deployed at `https://saraejohnston.com/website-audit`. The app now sets `basePath: '/website-audit'` in `next.config.ts`.
+The branded Studio is designed to run at the root of whatever hostname is supplied through `NEXT_PUBLIC_APP_URL`. A nested path remains optional for development or staging through `NEXT_PUBLIC_BASE_PATH`.
 
-- Keep Next `<Link>` destinations as logical app routes such as `/dashboard`, `/reports`, and `/audits/new`; Next applies the configured base path automatically.
-- Use `withBasePath()` from `lib/app-paths.ts` for raw browser URLs that Next does not rewrite, including `fetch('/api/...')` equivalents and public `<img src>` assets.
-- The MsSaraJo logo and all branded dashboard API calls now use the shared helper.
-- The helper is idempotent so an already-prefixed `/website-audit/...` URL will not become double-prefixed.
-- The production Etsy webhook is `https://saraejohnston.com/website-audit/api/etsy-webhook`.
-
-For local development, open `http://localhost:3000/website-audit` rather than the domain root.
+- Keep Next `<Link>` destinations as logical app routes such as `/dashboard`, `/reports`, and `/audits/new`; Next applies an enabled base path automatically.
+- Use `withBasePath()` from `lib/app-paths.ts` for raw browser URLs that Next does not rewrite, including API fetches and public image assets.
+- Leave `NEXT_PUBLIC_BASE_PATH` blank for a normal root deployment.
+- For a nested test deployment, set a value such as `/website-audit` without changing application source code.
 
 # v4.2 Comprehensive crawl + corner fix
 
@@ -163,7 +160,7 @@ For a brand-new database, `001_init.sql` already contains the final schema and n
 5. Optional: configure authenticated SMTP admin notifications with `ADMIN_NOTIFICATION_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASSWORD`.
 6. Create three separate **made-to-order digital** Etsy listings and put each listing ID in the matching environment variable.
 7. Authorize the Etsy app with the required transaction-read access and save the refresh token.
-8. Configure Etsy's `order.paid` webhook endpoint as `https://saraejohnston.com/website-audit/api/etsy-webhook`.
+8. Configure Etsy's `order.paid` webhook endpoint as `https://studio.example.com/website-audit/api/etsy-webhook`.
 9. Install and run:
 
 ```bash
@@ -353,6 +350,16 @@ The Reports detail view and PDF download are now base-path safe for the producti
 
 The branded Settings page now includes a **Connect Etsy** flow. Configure `ETSY_KEYSTRING`, `ETSY_SHARED_SECRET`, and `NEXT_PUBLIC_APP_URL`, then register this exact redirect URI in the Etsy developer app:
 
-`https://saraejohnston.com/website-audit/api/etsy/oauth/callback`
+`${NEXT_PUBLIC_APP_URL}/api/etsy/oauth/callback`
 
-Open `/website-audit/settings`, enter the internal admin token, and click **Connect Etsy**. The app uses Etsy OAuth Authorization Code + PKCE, requests `transactions_r`, exchanges the authorization code server-side, and stores the access/refresh tokens in the existing private `integration_tokens` table. The regular Etsy client automatically refreshes access tokens and persists any rotated refresh token. `ETSY_REFRESH_TOKEN` remains only as an optional legacy/bootstrap fallback and can be left blank for the normal Connect Etsy workflow.
+Open `/settings` (or the equivalent base-path-prefixed route), enter the internal admin token, and click **Connect Etsy**. The app uses Etsy OAuth Authorization Code + PKCE, requests `transactions_r`, exchanges the authorization code server-side, and stores the access/refresh tokens in the existing private `integration_tokens` table. The regular Etsy client automatically refreshes access tokens and persists any rotated refresh token. `ETSY_REFRESH_TOKEN` remains only as an optional legacy/bootstrap fallback and can be left blank for the normal Connect Etsy workflow.
+
+## v4.18 production URL configuration
+
+Production is designed for a root deployment with no Next.js base path. Set `NEXT_PUBLIC_APP_URL` to the deployed Studio origin and leave `NEXT_PUBLIC_BASE_PATH` blank.
+
+For development or staging, a path prefix remains available through `NEXT_PUBLIC_BASE_PATH` (for example `/website-audit`). See `DEPLOYMENT_URLS_v4.18.md`.
+
+## v4.19 deployment anonymization
+
+The repository no longer hard-codes a production hostname. Documentation and examples use neutral example domains, while the real deployment origin is supplied only through the private/gitignored `.env.local` (or the hosting provider's environment-variable dashboard). The scraper user agent also no longer embeds a personal-domain URL.

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { APP_BASE_PATH } from '@/lib/app-paths';
+import { APP_COOKIE_PATH } from '@/lib/app-paths';
 import { env } from '@/lib/env';
 import {
   exchangeEtsyAuthorizationCode,
@@ -16,8 +16,8 @@ function settingsRedirect(req: NextRequest, params: Record<string, string>) {
 }
 
 function clearOAuthCookies(response: NextResponse) {
-  response.cookies.set(ETSY_OAUTH_STATE_COOKIE, '', { httpOnly: true, path: APP_BASE_PATH, maxAge: 0 });
-  response.cookies.set(ETSY_OAUTH_VERIFIER_COOKIE, '', { httpOnly: true, path: APP_BASE_PATH, maxAge: 0 });
+  response.cookies.set(ETSY_OAUTH_STATE_COOKIE, '', { httpOnly: true, path: APP_COOKIE_PATH, maxAge: 0 });
+  response.cookies.set(ETSY_OAUTH_VERIFIER_COOKIE, '', { httpOnly: true, path: APP_COOKIE_PATH, maxAge: 0 });
 }
 
 export async function GET(req: NextRequest) {

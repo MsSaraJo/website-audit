@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
-import { APP_BASE_PATH } from '@/lib/app-paths';
+import { APP_COOKIE_PATH } from '@/lib/app-paths';
 import {
   buildEtsyAuthorizeUrl,
   createEtsyPkce,
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const authorizeUrl = buildEtsyAuthorizeUrl({ challenge, state });
     const response = NextResponse.json({ authorizeUrl });
     const secure = new URL(env.NEXT_PUBLIC_APP_URL).protocol === 'https:';
-    const common = { httpOnly: true, secure, sameSite: 'lax' as const, path: APP_BASE_PATH, maxAge: 10 * 60 };
+    const common = { httpOnly: true, secure, sameSite: 'lax' as const, path: APP_COOKIE_PATH, maxAge: 10 * 60 };
     response.cookies.set(ETSY_OAUTH_STATE_COOKIE, state, common);
     response.cookies.set(ETSY_OAUTH_VERIFIER_COOKIE, verifier, common);
     return response;
