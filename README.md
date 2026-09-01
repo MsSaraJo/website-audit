@@ -191,7 +191,7 @@ The product nicknames used for Etsy routing and admin workflow are intentionally
 
 | Internal tier | Client-facing PDF title |
 |---|---|
-| `quick_win` | Website SEO, UX & Conversion Audit |
+| `quick_win` | Homepage SEO, UX & Conversion Audit |
 | `full_site` | Comprehensive Website SEO, UX & Conversion Audit |
 | `competitor_conquest` | Website & Competitor SEO, UX & Conversion Audit |
 

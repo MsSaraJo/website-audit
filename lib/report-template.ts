@@ -50,7 +50,7 @@ function brandNameHtml() {
 }
 
 function coverTitleHtml(tier: AuditTier, fallback: string) {
-  if (tier === 'quick_win') return 'Website SEO,<br/>UX &amp;<br/>Conversion Audit';
+  if (tier === 'quick_win') return 'Homepage SEO,<br/>UX &amp;<br/>Conversion Audit';
   if (tier === 'full_site') return 'Comprehensive Website<br/>SEO, UX &amp;<br/>Conversion Audit';
   if (tier === 'competitor_conquest') return 'Website &amp; Competitor<br/>SEO, UX &amp;<br/>Conversion Audit';
   return e(fallback);

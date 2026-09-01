@@ -20,7 +20,7 @@ export const AUDIT_PRODUCTS: Record<AuditTier, AuditProduct> = {
     sku: 'MSJ-WEB-QW-001',
     priceUsd: 49,
     description: 'Homepage-focused SEO, UX, speed and conversion audit with the highest-value fixes.',
-    clientReportName: 'Website SEO, UX & Conversion Audit',
+    clientReportName: 'Homepage SEO, UX & Conversion Audit',
     clientFileLabel: 'Website-Audit',
   },
   full_site: {
