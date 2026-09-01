@@ -363,3 +363,20 @@ For development or staging, a path prefix remains available through `NEXT_PUBLIC
 ## v4.19 deployment anonymization
 
 The repository no longer hard-codes a production hostname. Documentation and examples use neutral example domains, while the real deployment origin is supplied only through the private/gitignored `.env.local` (or the hosting provider's environment-variable dashboard). The scraper user agent also no longer embeds a personal-domain URL.
+
+## Etsy API key header
+
+Etsy Open API v3 requests use the app keystring and shared secret together in the `x-api-key` request header:
+
+```text
+x-api-key: <keystring>:<shared_secret>
+```
+
+Keep the two values separate in environment configuration:
+
+```env
+ETSY_KEYSTRING=YOUR_KEYSTRING
+ETSY_SHARED_SECRET=YOUR_SHARED_SECRET
+```
+
+The application constructs the combined header server-side. Do not paste `keystring:shared_secret` into `ETSY_KEYSTRING`.

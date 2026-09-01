@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from './db';
 import { env } from './env';
+import { getEtsyApiKeyHeader, getEtsyClientId } from './etsy-credentials';
 
 export const ETSY_OAUTH_SCOPES = ['transactions_r'] as const;
 export const ETSY_OAUTH_STATE_COOKIE = 'mssarajo_etsy_oauth_state';
@@ -19,7 +20,7 @@ export function createEtsyPkce() {
 }
 
 export function buildEtsyAuthorizeUrl(input: { challenge: string; state: string }) {
-  if (!env.ETSY_KEYSTRING) throw new Error('ETSY_KEYSTRING is not configured');
+  const clientId = getEtsyClientId();
   const redirectUri = etsyOAuthCallbackUrl();
   if (!redirectUri.startsWith('https://')) {
     throw new Error('Etsy OAuth requires NEXT_PUBLIC_APP_URL to use HTTPS in production');
@@ -29,7 +30,7 @@ export function buildEtsyAuthorizeUrl(input: { challenge: string; state: string 
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('scope', ETSY_OAUTH_SCOPES.join(' '));
-  url.searchParams.set('client_id', env.ETSY_KEYSTRING);
+  url.searchParams.set('client_id', clientId);
   url.searchParams.set('state', input.state);
   url.searchParams.set('code_challenge', input.challenge);
   url.searchParams.set('code_challenge_method', 'S256');
@@ -37,11 +38,11 @@ export function buildEtsyAuthorizeUrl(input: { challenge: string; state: string 
 }
 
 export async function exchangeEtsyAuthorizationCode(code: string, verifier: string) {
-  if (!env.ETSY_KEYSTRING) throw new Error('ETSY_KEYSTRING is not configured');
+  const clientId = getEtsyClientId();
 
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: env.ETSY_KEYSTRING,
+    client_id: clientId,
     redirect_uri: etsyOAuthCallbackUrl(),
     code,
     code_verifier: verifier,
@@ -49,7 +50,7 @@ export async function exchangeEtsyAuthorizationCode(code: string, verifier: stri
 
   const response = await fetch('https://api.etsy.com/v3/public/oauth/token', {
     method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-api-key': getEtsyApiKeyHeader() },
     body,
     cache: 'no-store',
   });

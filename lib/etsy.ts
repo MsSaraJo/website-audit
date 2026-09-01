@@ -3,15 +3,16 @@ import { env } from './env';
 import { productForListingId } from './products';
 import { extractCandidateUrls } from './url-security';
 import type { AuditTier } from './types';
+import { getEtsyApiKeyHeader, getEtsyClientId } from './etsy-credentials';
 
 async function refreshAccessToken() {
-  if (!env.ETSY_KEYSTRING) throw new Error('ETSY_KEYSTRING is not configured');
+  const clientId = getEtsyClientId();
   const { data } = await db.from('integration_tokens').select('*').eq('provider', 'etsy').maybeSingle();
   if (data?.access_token && data?.expires_at && new Date(data.expires_at).getTime() > Date.now() + 120000) return data.access_token as string;
   const refreshToken = (data?.refresh_token as string | undefined) || env.ETSY_REFRESH_TOKEN;
   if (!refreshToken) throw new Error('No Etsy refresh token is configured');
-  const body = new URLSearchParams({ grant_type: 'refresh_token', client_id: env.ETSY_KEYSTRING, refresh_token: refreshToken });
-  const res = await fetch('https://api.etsy.com/v3/public/oauth/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
+  const body = new URLSearchParams({ grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken });
+  const res = await fetch('https://api.etsy.com/v3/public/oauth/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-api-key': getEtsyApiKeyHeader() }, body });
   if (!res.ok) throw new Error(`Etsy OAuth refresh failed: ${res.status} ${(await res.text()).slice(0, 500)}`);
   const token = await res.json();
   await db.from('integration_tokens').upsert({ provider: 'etsy', access_token: token.access_token, refresh_token: token.refresh_token || refreshToken, expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(), updated_at: new Date().toISOString() });
@@ -19,13 +20,12 @@ async function refreshAccessToken() {
 }
 
 async function etsyGet(url: string) {
-  if (!env.ETSY_KEYSTRING || !env.ETSY_SHARED_SECRET) throw new Error('Etsy API credentials are not configured');
   const parsed = new URL(url);
   if (!['api.etsy.com', 'openapi.etsy.com'].includes(parsed.hostname) || !parsed.pathname.startsWith('/v3/')) {
     throw new Error('Refusing non-Etsy API resource URL');
   }
   const access = await refreshAccessToken();
-  const res = await fetch(url, { headers: { 'x-api-key': `${env.ETSY_KEYSTRING}:${env.ETSY_SHARED_SECRET}`, authorization: `Bearer ${access}` } });
+  const res = await fetch(url, { headers: { 'x-api-key': getEtsyApiKeyHeader(), authorization: `Bearer ${access}` } });
   if (!res.ok) throw new Error(`Etsy API ${res.status}: ${(await res.text()).slice(0, 600)}`);
   return res.json();
 }
