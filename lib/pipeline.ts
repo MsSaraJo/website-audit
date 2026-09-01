@@ -44,8 +44,14 @@ export async function processAudit(id: string) {
     let emailDeliveredAt: string | null = null;
     const shouldEmail = audit.source === 'manual' || (audit.source === 'etsy' && env.ETSY_EMAIL_COPY_ENABLED === 'true');
     if (shouldEmail && audit.customer_email) {
-      await emailReport(audit.customer_email, uploaded.url, analysis.overallScore, tier);
-      emailDeliveredAt = new Date().toISOString();
+      try {
+        await emailReport(audit.customer_email, uploaded.url, analysis.overallScore, tier);
+        emailDeliveredAt = new Date().toISOString();
+      } catch (emailError) {
+        // The report is already generated and safely stored. Email is a delivery convenience,
+        // so a temporary credential/provider problem must not destroy an otherwise successful audit.
+        console.error(`[audit ${id}] email delivery failed; report remains available`, emailError);
+      }
     }
 
     if (audit.source === 'etsy') {
