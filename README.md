@@ -233,3 +233,7 @@ The PDF renderer now uses the approved MsSaraJo v3.6 visual system:
 - Roadmap pages use larger sparkle clusters plus dotted editorial flourishes.
 - The roadmap closing panel is redesigned as the approved "Focus. Impact. Growth." editorial callout with a large left sparkle, centered rule, right-side sparkle cluster, and cleaner corner geometry.
 - Recommendation sidebar panels use the same corrected corner geometry and larger accent sparkles.
+
+## v3.7 readability pass
+
+The client-facing PDF typography was increased for easier reading at normal zoom while preserving the approved v3.6 editorial layout, percentage-driven score arcs, corner geometry, and decorative sparkle system. No environment variable changes are required.
