@@ -1,6 +1,6 @@
-# v4.25: the audit pipeline runs in an ESM Netlify Background Function.
-# Keep the headless-browser packages external so @sparticuz/chromium can resolve
-# its bundled Brotli assets using its normal relative-path logic.
+# v4.26: browser dependencies are loaded with native runtime import() so the
+# worker remains compatible even if Netlify emits shared code as CommonJS.
+# Keep these packages external so Chromium can resolve its bundled Brotli assets.
 [functions."process-audit-background"]
   node_bundler = "esbuild"
   external_node_modules = ["@sparticuz/chromium", "puppeteer-core"]

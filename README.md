@@ -404,3 +404,8 @@ Provider calls have a 120-second per-request abort ceiling and one transient ret
 
 The audit background worker now uses an `.mts` ESM entrypoint so `@sparticuz/chromium` 149 loads correctly on Netlify/AWS Lambda Node 24 instead of being converted to CommonJS `require()`. See `NETLIFY_ESM_CHROMIUM_FIX_v4.25.md`.
 
+
+
+## v4.26 — Netlify native dynamic browser imports
+
+The background audit worker now loads `@sparticuz/chromium` and `puppeteer-core` with Node's native runtime `import()` from `lib/browser.ts`. This prevents Netlify/esbuild from rewriting the ESM-only Chromium package to CommonJS `require()` during Lambda bundling. See `NETLIFY_NATIVE_DYNAMIC_IMPORT_FIX_v4.26.md`.
