@@ -237,3 +237,18 @@ The PDF renderer now uses the approved MsSaraJo v3.6 visual system:
 ## v3.7 readability pass
 
 The client-facing PDF typography was increased for easier reading at normal zoom while preserving the approved v3.6 editorial layout, percentage-driven score arcs, corner geometry, and decorative sparkle system. No environment variable changes are required.
+
+## v3.8 personalization and polish pass
+
+The finalized client PDF keeps the v3.7 visual design and adds several content/readability refinements:
+
+- Cover support copy is now generated from the actual score mix instead of repeating a generic foundation/opportunity sentence.
+- The page-2 takeaway names the strongest and weakest scored areas and uses their live score values to explain what to prioritize next.
+- Score legends/status labels and roadmap microtype are larger and darker for easier reading.
+- Roadmap cards remove the redundant upper-right category label; the remaining effort/page metadata is larger and more useful.
+- Rewrite pages now show an intentional `Recommendations for: Homepage`-style scope line near the heading rather than a floating page label near the footer.
+- `llms.txt` is described as `Not detected` when absent and explicitly identified as an optional signal.
+- The technical-page disclaimer is larger and easier to read.
+- The AI instructions now ask for evidence-specific executive summaries and discourage generic filler.
+
+No environment variable changes are required for v3.8.
