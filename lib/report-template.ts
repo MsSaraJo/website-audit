@@ -242,7 +242,7 @@ export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScr
       </div>
       <div class="hero-score">
         <div class="score-halo">${scoreGauge(analysis.overallScore, 'hero')}<strong>${analysis.overallScore}</strong></div>
-        <div class="score-label">Overall<br/>website score</div>
+        <div class="score-label">Overall<br/>homepage score</div>
       </div>
     </div>
     <div class="executive-box">${notchedFrame('executive-frame', 3.0)}
@@ -258,7 +258,7 @@ export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScr
   pages.push(`<section class="report-page glance-page">
     <div class="topbar compact">${brandLockup()}<div class="review-pill">${sparkle('mini-spark')} Personalized website review</div></div>
     <div class="prepared-line">Prepared for ${e(domain)}</div>
-    <h2 class="hero-heading">Your Website at a Glance</h2>
+    <h2 class="hero-heading">Your Homepage at a Glance</h2>
     <p class="hero-subhead">A high-level snapshot of how your website is performing across the areas that matter most.</p>
     <div class="score-legend">
       <span><i class="legend-dot excellent"></i>Excellent</span><span><i class="legend-dot strong"></i>Strong</span><span><i class="legend-dot foundation"></i>Good foundation</span><span><i class="legend-dot opportunity"></i>Opportunity</span>
@@ -294,7 +294,7 @@ export function renderReportHtml(input: { analysis: AuditAnalysis; site: SiteScr
     }).join('');
     pages.push(`<section class="report-page roadmap-page">
       <div class="topbar compact">${brandLockup()}<div class="page-kicker">${groupIndex === 0 ? 'Personalized website review' : 'Roadmap continued'}</div></div>
-      <h2 class="hero-heading">${groupIndex === 0 ? 'Your Website Roadmap' : 'Your Website Roadmap, Continued'}</h2>
+      <h2 class="hero-heading">${groupIndex === 0 ? 'Your Homepage Roadmap' : 'Your Homepage Roadmap, Continued'}</h2>
       <p class="hero-subhead">A prioritized plan to elevate your website's visibility, user experience, and conversion performance.</p>
       <div class="roadmap-list">${actionHtml}</div>
       <div class="takeaway-box">${notchedFrame('takeaway-frame', 7.1)}<div class="takeaway-left">${sparkle('takeaway-spark')}</div><div class="takeaway-copy"><strong>Focus. Impact. Growth.</strong><div class="takeaway-rule"><span></span>${sparkle('takeaway-rule-spark')}<span></span></div><p>Small, strategic improvements lead to meaningful results. Focus on these priorities first to build momentum, then continue refining for long-term growth.</p></div><div class="takeaway-stars">${sparkle('takeaway-star takeaway-star-one')}${sparkle('takeaway-star takeaway-star-two')}${sparkle('takeaway-star takeaway-star-three')}</div></div>

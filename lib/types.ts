@@ -25,6 +25,7 @@ export type PageAudit = {
 export type SiteScrape = {
   startUrl: string;
   pages: PageAudit[];
+  utilityFindings?: PageAudit[];
   robotsTxt: string | null;
   llmsTxt: string | null;
   hasSitemap: boolean;

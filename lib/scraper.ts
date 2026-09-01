@@ -71,6 +71,17 @@ function candidateScore(url: string, usedKinds: Set<string>) {
   return (base[kind] ?? 600) + diversityBonus - depthPenalty;
 }
 
+
+function isUtilityEndpoint(url: string, data: { wordCount: number; forms: number; h1: string[]; textSample: string; title: string }) {
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+    const utilityPath = /\/(files?|uploads?|media|assets?|api|wp-json|feed|toolkit|_toolkit)(\/|$)/.test(path);
+    const rawLike = /^[\s]*[\[{]/.test(data.textSample || '') || /application\/(json|xml)/i.test(data.title || '');
+    const noPageStructure = data.forms === 0 && data.h1.length === 0;
+    return noPageStructure && (utilityPath || rawLike) && data.wordCount < 2500;
+  } catch { return false; }
+}
+
 function sitemapUrls(xml: string, origin: string) {
   const urls: string[] = [];
   for (const m of xml.matchAll(/<loc[^>]*>([\s\S]*?)<\/loc>/gi)) {
@@ -127,6 +138,7 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
   const seen = new Set<string>();
   const usedKinds = new Set<string>();
   const pages: PageAudit[] = [];
+  const utilityFindings: PageAudit[] = [];
 
   try {
     while (pages.length < limits[tier]) {
@@ -201,11 +213,18 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
           && data.wordCount < 60
           && data.forms === 0
           && data.h1.length === 0;
-        if (!pages.some(p => p.url === finalUrl) && !thinUtility) {
+        // Comprehensive promises up to five meaningful visitor-facing pages.
+        // Utility/API/media-library endpoints can still be discovered as technical
+        // evidence, but they must not consume one of those five purchased slots.
+        const quotaUtility = tier === 'full_site' && isUtilityEndpoint(finalUrl, data);
+        if (!pages.some(p => p.url === finalUrl) && !thinUtility && !quotaUtility) {
           pages.push({ url: finalUrl, ...data });
           usedKinds.add(pageKind(finalUrl));
-        } else if (thinUtility) {
-          console.info(`[scraper] skipped thin utility candidate ${finalUrl} (${data.wordCount} words)`);
+        } else if (thinUtility || quotaUtility) {
+          if (quotaUtility && !utilityFindings.some(p => p.url === finalUrl)) {
+            utilityFindings.push({ url: finalUrl, ...data });
+          }
+          console.info(`[scraper] skipped non-client-page candidate ${finalUrl} (${data.wordCount} words)`);
         }
         for (const link of data.internalLinks) {
           const normalizedLink = normalizedInternal(link, origin);
@@ -223,5 +242,5 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
 
   if (!pages.length) throw new Error('Could not render the target website');
   const llmsTxt = await fetchText(`${root}/llms.txt`);
-  return { startUrl, pages, robotsTxt, llmsTxt, hasSitemap: /sitemap:/i.test(robotsTxt || '') || sitemapCandidates.length > 0 };
+  return { startUrl, pages, utilityFindings, robotsTxt, llmsTxt, hasSitemap: /sitemap:/i.test(robotsTxt || '') || sitemapCandidates.length > 0 };
 }
