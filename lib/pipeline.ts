@@ -15,6 +15,10 @@ export async function processAudit(id: string) {
     const target = await assertPublicUrl(audit.target_url);
     const tier = audit.tier as AuditTier;
     const site = await scrapeSite(target, tier);
+    console.info(`[audit ${id}] ${tier} scraped ${site.pages.length} page(s): ${site.pages.map(p => p.url).join(', ')}`);
+    if (tier === 'full_site' && site.pages.length < 2) {
+      console.warn(`[audit ${id}] Comprehensive audit found only ${site.pages.length} crawlable page. Internal-link and sitemap discovery were both attempted.`);
+    }
     const pageSpeed = await runPageSpeed(site.pages.map(p => p.url), tier);
     const competitorUrls = (audit.competitor_urls ?? []) as string[];
     const competitors = [] as Array<{url:string; site:any; pageSpeed:any}>;

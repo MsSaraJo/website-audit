@@ -274,3 +274,12 @@ The PDF renderer now has three dedicated client-facing layouts:
 The Competitive Edge report includes an executive competitive brief, competitor scoreboard, where-you-lead/where-they-lead analysis, competitor profiles, messaging and positioning gap analysis, SEO/content opportunity map, market white-space analysis, competitive win strategy, 90-day advantage plan, Do This / Don't Chase This guidance, page-level competitive opportunities, ready-to-use rewrites, and a technical/evidence appendix.
 
 For the premium tier, the AI response now also supports `competitorIntelligence`. The field is populated from the supplied competitor evidence; the renderer includes graceful fallbacks so a report can still render if a provider omits part of the optional premium structure.
+
+## v4.1 Comprehensive crawl + PDF hardening
+
+- Comprehensive audits now discover candidate pages from both rendered internal links and sitemap XML, then prioritize strategically useful page types instead of first-link DOM order.
+- The five-page crawl favors a diverse customer journey (services/shop/product/about/contact/FAQ) and avoids cart, login, policy, and tracking URL variants.
+- Comprehensive report cards now use aspect-aware notched corners, bounded copy, fixed page budgets, and overflow-safe grid columns for production-length AI content.
+- Page 4 cross-page insight cards have stable dimensions and corner geometry.
+- Pipeline logs list every URL actually reviewed for easier debugging.
+- Browser metadata now uses `MsSaraJo | Website Audit Studio`; the legacy SiteSignal title is removed.
