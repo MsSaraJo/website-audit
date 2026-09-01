@@ -1,3 +1,16 @@
+
+## v4.15 nested deployment / base-path hardening
+
+The branded studio is deployed at `https://saraejohnston.com/website-audit`. The app now sets `basePath: '/website-audit'` in `next.config.ts`.
+
+- Keep Next `<Link>` destinations as logical app routes such as `/dashboard`, `/reports`, and `/audits/new`; Next applies the configured base path automatically.
+- Use `withBasePath()` from `lib/app-paths.ts` for raw browser URLs that Next does not rewrite, including `fetch('/api/...')` equivalents and public `<img src>` assets.
+- The MsSaraJo logo and all branded dashboard API calls now use the shared helper.
+- The helper is idempotent so an already-prefixed `/website-audit/...` URL will not become double-prefixed.
+- The production Etsy webhook is `https://saraejohnston.com/website-audit/api/etsy-webhook`.
+
+For local development, open `http://localhost:3000/website-audit` rather than the domain root.
+
 # v4.2 Comprehensive crawl + corner fix
 
 - Treats `www.` and apex-domain redirects as the same site during multi-page discovery.
@@ -150,7 +163,7 @@ For a brand-new database, `001_init.sql` already contains the final schema and n
 5. Optional: configure authenticated SMTP admin notifications with `ADMIN_NOTIFICATION_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASSWORD`.
 6. Create three separate **made-to-order digital** Etsy listings and put each listing ID in the matching environment variable.
 7. Authorize the Etsy app with the required transaction-read access and save the refresh token.
-8. Configure Etsy's `order.paid` webhook endpoint as `https://YOUR_DOMAIN/api/etsy-webhook`.
+8. Configure Etsy's `order.paid` webhook endpoint as `https://saraejohnston.com/website-audit/api/etsy-webhook`.
 9. Install and run:
 
 ```bash
@@ -160,7 +173,7 @@ npm run dev
 
 ## Admin workflow
 
-Open `/` and enter `ADMIN_TOKEN`.
+Open `/website-audit` (or `http://localhost:3000/website-audit` locally) and enter `ADMIN_TOKEN`.
 
 The page supports:
 

@@ -6,6 +6,7 @@ import { Frame, Sparkle } from '@/components/Frame';
 import { ScoreArc } from '@/components/ScoreArc';
 import { SectionTitle } from '@/components/SectionTitle';
 import { useAdminToken } from '@/components/useAdminToken';
+import { withBasePath } from '@/lib/app-paths';
 import type { AuditSummary } from '@/components/types';
 
 function prettyTier(tier:string){ return tier==='quick_win'?'Homepage Audit':tier==='full_site'?'Comprehensive':'Competitive Edge'; }
@@ -13,7 +14,7 @@ function domain(url:string){ try{return new URL(url).hostname.replace(/^www\./,'
 
 export default function Dashboard(){
  const {token}=useAdminToken(); const [audits,setAudits]=useState<AuditSummary[]>([]); const [loading,setLoading]=useState(false);
- useEffect(()=>{ if(!token)return; setLoading(true); fetch('/api/audits',{headers:{authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():Promise.reject()).then(j=>setAudits(j.audits??[])).finally(()=>setLoading(false)); },[token]);
+ useEffect(()=>{ if(!token)return; setLoading(true); fetch(withBasePath('/api/audits'),{headers:{authorization:`Bearer ${token}`}}).then(r=>r.ok?r.json():Promise.reject()).then(j=>setAudits(j.audits??[])).finally(()=>setLoading(false)); },[token]);
  const completed=useMemo(()=>audits.filter(a=>a.hasReport),[audits]); const featured=completed[0]; const avg=Math.round(completed.filter(a=>a.score!=null).reduce((s,a)=>s+(a.score??0),0)/Math.max(1,completed.filter(a=>a.score!=null).length));
  const queue=audits.filter(a=>a.status==='awaiting_etsy_upload').length;
  return <AdminShell><SectionTitle eyebrow="INSIGHT STUDIO" title="Your Website Insight Dashboard" script="Clear insights. Confident next steps." body="A calm command center for running audits, reviewing reports, and moving Etsy orders from analysis to delivery."/>

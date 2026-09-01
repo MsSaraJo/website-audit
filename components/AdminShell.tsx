@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Icon } from './Icons';
+import { withBasePath } from '@/lib/app-paths';
 import { useAdminToken } from './useAdminToken';
 
 const nav = [
@@ -18,7 +19,7 @@ export function AdminShell({children}:{children:ReactNode}) {
   const { token, setToken } = useAdminToken();
   return <div className="app-shell">
     <aside className="sidebar">
-      <Link href="/dashboard" className="brand"><img src="/mssarajo-logo.png" alt="MsSaraJo Website Insight Studio"/></Link>
+      <Link href="/dashboard" className="brand"><img src={withBasePath('/mssarajo-logo.png')} alt="MsSaraJo Website Insight Studio"/></Link>
       <div className="nav-label">Overview</div>
       <nav>{nav.map(([href,icon,label]) => <Link key={href} href={href} className={pathname===href || (href==='/reports'&&pathname.startsWith('/reports/')) ? 'active':''}><Icon name={icon}/><span>{label}</span></Link>)}</nav>
       <div className="nav-divider"/>
