@@ -18,6 +18,10 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function logPrefix(auditId: string | undefined, provider?: string) {
+  return `${auditId ? `[audit ${auditId}] ` : ''}[llm${provider ? `:${provider}` : ''}]`;
+}
+
 function instructionsFor(tier: AuditTier) {
   return `You are a senior technical SEO, ecommerce UX, accessibility, and AI-search optimization auditor.
 Produce practical advice for a small business owner. Be specific, evidence-based, concise, and non-alarmist.
@@ -53,89 +57,133 @@ function openAiModelForTier(tier: AuditTier) {
   return env.OPENAI_FULL_SITE_MODEL;
 }
 
-async function callOpenAI(input: AuditInput): Promise<AuditAnalysis> {
+async function callOpenAI(input: AuditInput, auditId?: string, attempt = 1): Promise<AuditAnalysis> {
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
 
   const model = openAiModelForTier(input.tier);
-  const res = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      instructions: instructionsFor(input.tier),
-      input: auditData(input),
-      reasoning: { effort: input.tier === 'quick_win' ? 'low' : 'medium' },
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'website_audit',
-          // The shared schema intentionally has a couple of optional fields for
-          // Gemini compatibility, so keep strict off and validate after parsing.
-          strict: false,
-          schema: auditJsonSchema,
-        },
+  const prefix = logPrefix(auditId, 'openai');
+  const requestStartedAt = Date.now();
+  const instructions = instructionsFor(input.tier);
+  const data = auditData(input);
+  const requestBody = JSON.stringify({
+    model,
+    instructions,
+    input: data,
+    reasoning: { effort: input.tier === 'quick_win' ? 'low' : 'medium' },
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'website_audit',
+        // The shared schema intentionally has a couple of optional fields for
+        // Gemini compatibility, so keep strict off and validate after parsing.
+        strict: false,
+        schema: auditJsonSchema,
       },
-      max_output_tokens: 16000,
-      store: false,
-    }),
-    signal: AbortSignal.timeout(180000),
+    },
+    max_output_tokens: 16000,
+    store: false,
   });
 
-  if (!res.ok) {
-    const body = (await res.text()).slice(0, 1200);
-    const error = new Error(`OpenAI ${res.status}: ${body}`) as Error & { status?: number };
-    error.status = res.status;
+  console.info(`${prefix} request started; attempt=${attempt}, tier=${input.tier}, model=${model}, auditDataChars=${data.length}, requestChars=${requestBody.length}`);
+
+  try {
+    const fetchStartedAt = Date.now();
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      },
+      body: requestBody,
+      signal: AbortSignal.timeout(180000),
+    });
+    console.info(`${prefix} HTTP response received in ${Date.now() - fetchStartedAt}ms; attempt=${attempt}, status=${res.status}, model=${model}`);
+
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 1200);
+      const error = new Error(`OpenAI ${res.status}: ${body}`) as Error & { status?: number };
+      error.status = res.status;
+      throw error;
+    }
+
+    const parseStartedAt = Date.now();
+    const json = await res.json();
+    console.info(`${prefix} response JSON parsed in ${Date.now() - parseStartedAt}ms; attempt=${attempt}, apiStatus=${json?.status ?? 'unknown'}, inputTokens=${json?.usage?.input_tokens ?? 'n/a'}, outputTokens=${json?.usage?.output_tokens ?? 'n/a'}, totalTokens=${json?.usage?.total_tokens ?? 'n/a'}`);
+
+    if (json?.status === 'failed') {
+      throw new Error(`OpenAI response failed: ${JSON.stringify(json?.error ?? {}).slice(0, 800)}`);
+    }
+
+    const text = (json?.output ?? [])
+      .flatMap((item: any) => item?.content ?? [])
+      .filter((part: any) => part?.type === 'output_text')
+      .map((part: any) => part?.text ?? '')
+      .join('');
+
+    if (!text) throw new Error(`OpenAI ${model} returned no analysis text`);
+
+    const validationStartedAt = Date.now();
+    const analysis = validateAnalysis(JSON.parse(text), `OpenAI ${model}`);
+    console.info(`${prefix} request complete in ${Date.now() - requestStartedAt}ms; attempt=${attempt}, model=${model}, outputChars=${text.length}, validation=${Date.now() - validationStartedAt}ms`);
+    return analysis;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`${prefix} request FAILED after ${Date.now() - requestStartedAt}ms; attempt=${attempt}, model=${model}: ${message}`);
     throw error;
   }
-
-  const json = await res.json();
-  if (json?.status === 'failed') {
-    throw new Error(`OpenAI response failed: ${JSON.stringify(json?.error ?? {}).slice(0, 800)}`);
-  }
-
-  const text = (json?.output ?? [])
-    .flatMap((item: any) => item?.content ?? [])
-    .filter((part: any) => part?.type === 'output_text')
-    .map((part: any) => part?.text ?? '')
-    .join('');
-
-  if (!text) throw new Error(`OpenAI ${model} returned no analysis text`);
-  return validateAnalysis(JSON.parse(text), `OpenAI ${model}`);
 }
 
-async function callGemini(input: AuditInput): Promise<AuditAnalysis> {
+async function callGemini(input: AuditInput, auditId?: string, attempt = 1): Promise<AuditAnalysis> {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured');
 
+  const prefix = logPrefix(auditId, 'gemini');
+  const requestStartedAt = Date.now();
   const prompt = `${instructionsFor(input.tier)}\n\n${auditData(input)}`;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`;
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseJsonSchema: auditJsonSchema,
-        temperature: 0.25,
-      },
-    }),
-    signal: AbortSignal.timeout(180000),
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: auditJsonSchema,
+      temperature: 0.25,
+    },
   });
 
-  if (!res.ok) {
-    const body = (await res.text()).slice(0, 1200);
-    const error = new Error(`Gemini ${res.status}: ${body}`) as Error & { status?: number };
-    error.status = res.status;
+  console.info(`${prefix} request started; attempt=${attempt}, tier=${input.tier}, model=${env.GEMINI_MODEL}, promptChars=${prompt.length}, requestChars=${requestBody.length}`);
+
+  try {
+    const fetchStartedAt = Date.now();
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+      body: requestBody,
+      signal: AbortSignal.timeout(180000),
+    });
+    console.info(`${prefix} HTTP response received in ${Date.now() - fetchStartedAt}ms; attempt=${attempt}, status=${res.status}, model=${env.GEMINI_MODEL}`);
+
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 1200);
+      const error = new Error(`Gemini ${res.status}: ${body}`) as Error & { status?: number };
+      error.status = res.status;
+      throw error;
+    }
+
+    const parseStartedAt = Date.now();
+    const json = await res.json();
+    console.info(`${prefix} response JSON parsed in ${Date.now() - parseStartedAt}ms; attempt=${attempt}, promptTokens=${json?.usageMetadata?.promptTokenCount ?? 'n/a'}, outputTokens=${json?.usageMetadata?.candidatesTokenCount ?? 'n/a'}, totalTokens=${json?.usageMetadata?.totalTokenCount ?? 'n/a'}`);
+
+    const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
+    if (!text) throw new Error('Gemini returned no analysis text');
+
+    const validationStartedAt = Date.now();
+    const analysis = validateAnalysis(JSON.parse(text), `Gemini ${env.GEMINI_MODEL}`);
+    console.info(`${prefix} request complete in ${Date.now() - requestStartedAt}ms; attempt=${attempt}, model=${env.GEMINI_MODEL}, outputChars=${text.length}, validation=${Date.now() - validationStartedAt}ms`);
+    return analysis;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`${prefix} request FAILED after ${Date.now() - requestStartedAt}ms; attempt=${attempt}, model=${env.GEMINI_MODEL}: ${message}`);
     throw error;
   }
-
-  const json = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
-  if (!text) throw new Error('Gemini returned no analysis text');
-  return validateAnalysis(JSON.parse(text), `Gemini ${env.GEMINI_MODEL}`);
 }
 
 function isTransient(error: unknown) {
@@ -145,42 +193,73 @@ function isTransient(error: unknown) {
   return /timeout|timed out|ECONNRESET|fetch failed|network/i.test(message);
 }
 
-async function withTransientRetries<T>(label: string, fn: () => Promise<T>): Promise<T> {
+async function withTransientRetries<T>(
+  label: string,
+  auditId: string | undefined,
+  fn: (attempt: number) => Promise<T>,
+): Promise<T> {
   let lastError: unknown;
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+  const prefix = logPrefix(auditId, label.toLowerCase());
+
+  for (let attemptIndex = 0; attemptIndex <= RETRY_DELAYS_MS.length; attemptIndex++) {
+    const attempt = attemptIndex + 1;
+    const attemptStartedAt = Date.now();
     try {
-      return await fn();
+      const value = await fn(attempt);
+      if (attempt > 1) {
+        console.info(`${prefix} retry attempt ${attempt} succeeded in ${Date.now() - attemptStartedAt}ms`);
+      }
+      return value;
     } catch (error) {
       lastError = error;
-      if (!isTransient(error) || attempt === RETRY_DELAYS_MS.length) break;
-      console.warn(`${label} transient failure; retrying attempt ${attempt + 2}`, error);
-      await sleep(RETRY_DELAYS_MS[attempt]);
+      const transient = isTransient(error);
+      const finalAttempt = attemptIndex === RETRY_DELAYS_MS.length;
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`${prefix} attempt ${attempt} failed after ${Date.now() - attemptStartedAt}ms; transient=${transient}, finalAttempt=${finalAttempt}: ${message}`);
+      if (!transient || finalAttempt) break;
+
+      const delay = RETRY_DELAYS_MS[attemptIndex];
+      console.warn(`${prefix} waiting ${delay}ms before retry attempt ${attempt + 1}`);
+      await sleep(delay);
     }
   }
   throw lastError;
 }
 
-async function runProvider(provider: Provider, input: AuditInput) {
-  if (provider === 'openai') return withTransientRetries('OpenAI', () => callOpenAI(input));
-  return withTransientRetries('Gemini', () => callGemini(input));
+async function runProvider(provider: Provider, input: AuditInput, auditId?: string) {
+  if (provider === 'openai') return withTransientRetries('OpenAI', auditId, attempt => callOpenAI(input, auditId, attempt));
+  return withTransientRetries('Gemini', auditId, attempt => callGemini(input, auditId, attempt));
 }
 
-export async function analyzeAudit(input: AuditInput): Promise<AuditAnalysis> {
+export async function analyzeAudit(input: AuditInput, auditId?: string): Promise<AuditAnalysis> {
+  const startedAt = Date.now();
+  const prefix = logPrefix(auditId);
   const primary = env.AI_PRIMARY_PROVIDER;
   const fallback: Provider = primary === 'openai' ? 'gemini' : 'openai';
 
+  console.info(`${prefix} analysis routing started; tier=${input.tier}, primary=${primary}, fallback=${fallback}, pages=${input.site.pages.length}, pagespeedResults=${input.pageSpeed.length}, competitors=${input.competitors?.length ?? 0}`);
+
   try {
-    return await runProvider(primary, input);
+    const analysis = await runProvider(primary, input, auditId);
+    console.info(`${prefix} analysis routing complete in ${Date.now() - startedAt}ms; provider=${primary}`);
+    return analysis;
   } catch (primaryError) {
     const fallbackConfigured = fallback === 'openai' ? Boolean(env.OPENAI_API_KEY) : Boolean(env.GEMINI_API_KEY);
-    if (!fallbackConfigured) throw primaryError;
+    const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+    if (!fallbackConfigured) {
+      console.error(`${prefix} primary provider ${primary} failed after ${Date.now() - startedAt}ms and fallback ${fallback} is not configured: ${primaryMessage}`);
+      throw primaryError;
+    }
 
-    console.error(`${primary} audit analysis failed; trying ${fallback}`, primaryError);
+    console.error(`${prefix} primary provider ${primary} failed after ${Date.now() - startedAt}ms; trying fallback ${fallback}: ${primaryMessage}`);
+    const fallbackStartedAt = Date.now();
     try {
-      return await runProvider(fallback, input);
+      const analysis = await runProvider(fallback, input, auditId);
+      console.info(`${prefix} fallback ${fallback} succeeded in ${Date.now() - fallbackStartedAt}ms; totalAnalysis=${Date.now() - startedAt}ms`);
+      return analysis;
     } catch (fallbackError) {
-      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
       const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      console.error(`${prefix} fallback ${fallback} also failed after ${Date.now() - fallbackStartedAt}ms; totalAnalysis=${Date.now() - startedAt}ms: ${fallbackMessage}`);
       throw new Error(`All AI providers failed. Primary (${primary}): ${primaryMessage}. Fallback (${fallback}): ${fallbackMessage}`);
     }
   }

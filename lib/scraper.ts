@@ -4,6 +4,10 @@ import { assertPublicUrl } from './url-security';
 
 const limits: Record<AuditTier, number> = { quick_win: 1, full_site: 5, competitor_conquest: 10 };
 
+function scrapePrefix(auditId?: string, scope = 'target') {
+  return `${auditId ? `[audit ${auditId}] ` : ''}[scraper:${scope}]`;
+}
+
 async function fetchText(url: string, maxChars = 120000) {
   try {
     await assertPublicUrl(url);
@@ -125,15 +129,35 @@ async function discoverFromSitemaps(root: string, robotsTxt: string | null) {
   return [...pageCandidates];
 }
 
-export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteScrape> {
+export async function scrapeSite(
+  start: string,
+  tier: AuditTier,
+  auditId?: string,
+  scope = 'target',
+): Promise<SiteScrape> {
+  const prefix = scrapePrefix(auditId, scope);
+  const scrapeStartedAt = Date.now();
+  console.info(`${prefix} scrape started; tier=${tier}, pageLimit=${limits[tier]}, start=${start}`);
+
+  const validationStartedAt = Date.now();
   const startUrl = await assertPublicUrl(start);
+  console.info(`${prefix} start URL validated in ${Date.now() - validationStartedAt}ms: ${startUrl}`);
+
   const origin = new URL(startUrl).origin;
   const root = origin;
-  const robotsTxt = await fetchText(`${root}/robots.txt`);
-  const sitemapCandidates = tier === 'quick_win' ? [] : await discoverFromSitemaps(root, robotsTxt);
 
-  console.info(`[scraper] launching browser for ${startUrl} (${tier})`);
+  const robotsStartedAt = Date.now();
+  const robotsTxt = await fetchText(`${root}/robots.txt`);
+  console.info(`${prefix} robots.txt fetch finished in ${Date.now() - robotsStartedAt}ms; found=${Boolean(robotsTxt)}`);
+
+  const sitemapStartedAt = Date.now();
+  const sitemapCandidates = tier === 'quick_win' ? [] : await discoverFromSitemaps(root, robotsTxt);
+  console.info(`${prefix} sitemap discovery finished in ${Date.now() - sitemapStartedAt}ms; candidates=${sitemapCandidates.length}`);
+
+  const browserStartedAt = Date.now();
+  console.info(`${prefix} launching browser`);
   const browser = await launchBrowser();
+  console.info(`${prefix} browser launched in ${Date.now() - browserStartedAt}ms`);
   const candidates = new Set<string>([startUrl]);
   sitemapCandidates.forEach(url => candidates.add(url));
   const seen = new Set<string>();
@@ -156,7 +180,8 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
       target = normalized;
       seen.add(target);
 
-      console.info(`[scraper] rendering ${target}`);
+      const pageStartedAt = Date.now();
+      console.info(`${prefix} rendering ${target}; acceptedPages=${pages.length}/${limits[tier]}, seen=${seen.size}, candidates=${candidates.size}`);
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 1100 });
       await page.setUserAgent('Mozilla/5.0 (compatible; MsSaraJoAuditBot/1.0)');
@@ -226,15 +251,16 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
           if (quotaUtility && !utilityFindings.some(p => p.url === finalUrl)) {
             utilityFindings.push({ url: finalUrl, ...data });
           }
-          console.info(`[scraper] skipped non-client-page candidate ${finalUrl} (${data.wordCount} words)`);
+          console.info(`${prefix} skipped non-client-page candidate ${finalUrl} (${data.wordCount} words)`);
         }
         for (const link of data.internalLinks) {
           const normalizedLink = normalizedInternal(link, origin);
           if (normalizedLink && !seen.has(normalizedLink)) candidates.add(normalizedLink);
         }
+        console.info(`${prefix} rendered ${target} in ${Date.now() - pageStartedAt}ms; finalUrl=${finalUrl}, words=${data.wordCount}, internalLinks=${data.internalLinks.length}, acceptedPages=${pages.length}/${limits[tier]}`);
       } catch (error) {
         // A broken candidate should not prevent the crawler from trying the next page.
-        console.warn(`[scraper] could not render ${target}`, error);
+        console.warn(`${prefix} could not render ${target} after ${Date.now() - pageStartedAt}ms`, error);
       } finally {
         await page.close();
       }
@@ -247,6 +273,11 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
   }
 
   if (!pages.length) throw new Error('Could not render the target website');
+
+  const llmsStartedAt = Date.now();
   const llmsTxt = await fetchText(`${root}/llms.txt`);
+  console.info(`${prefix} llms.txt fetch finished in ${Date.now() - llmsStartedAt}ms; found=${Boolean(llmsTxt)}`);
+
+  console.info(`${prefix} scrape complete in ${Date.now() - scrapeStartedAt}ms; pages=${pages.length}, utilityFindings=${utilityFindings.length}, sitemapCandidates=${sitemapCandidates.length}`);
   return { startUrl, pages, utilityFindings, robotsTxt, llmsTxt, hasSitemap: /sitemap:/i.test(robotsTxt || '') || sitemapCandidates.length > 0 };
 }
