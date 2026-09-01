@@ -7,12 +7,14 @@ export async function analyzeAudit(input: {
   site: SiteScrape;
   pageSpeed: PageSpeedSummary[];
   competitors?: Array<{ url: string; site: SiteScrape; pageSpeed: PageSpeedSummary[] }>;
+  customerContext?: unknown;
 }): Promise<AuditAnalysis> {
   const prompt = `You are a senior technical SEO, ecommerce UX, accessibility, and AI-search optimization auditor.
 Produce practical advice for a small business owner. Be specific, evidence-based, concise, and non-alarmist.
 Do not invent measurements. Scores must reflect the supplied evidence. GEO means discoverability/clarity for answer engines and AI crawlers, based on crawl access, structured data, semantic headings, concise factual copy, lists, and llms.txt/robots signals.
 Tier: ${input.tier}.
 For quick_win, prioritize the homepage and exactly the highest-value fixes. For full_site, compare patterns across pages and include useful copy rewrites. For competitor_conquest, include a meaningful competitorGap based only on supplied competitor evidence.
+If customerContext contains a stated platform or business goal, use it only to prioritize otherwise evidence-supported recommendations; do not invent facts from it.
 
 AUDIT DATA:
 ${JSON.stringify(input).slice(0, 180000)}`;

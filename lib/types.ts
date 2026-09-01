@@ -1,5 +1,5 @@
 export type AuditTier = 'quick_win' | 'full_site' | 'competitor_conquest';
-export type AuditStatus = 'pending' | 'scraping' | 'analyzing' | 'generating_pdf' | 'completed' | 'failed';
+export type AuditStatus = 'pending' | 'scraping' | 'analyzing' | 'generating_pdf' | 'awaiting_etsy_upload' | 'completed' | 'failed';
 
 export type PageAudit = {
   url: string;

@@ -1,14 +1,39 @@
 import { db } from './db';
 import type { AuditStatus, AuditTier } from './types';
 
-export async function createAudit(input: { source: 'manual' | 'etsy'; email: string; url: string; tier: AuditTier; competitorUrls?: string[]; etsyReceiptId?: string; inputData?: unknown }) {
-  const { data, error } = await db.from('audits').insert({
-    source: input.source, customer_email: input.email, target_url: input.url, tier: input.tier,
-    competitor_urls: input.competitorUrls ?? [], etsy_receipt_id: input.etsyReceiptId ?? null, input_data: input.inputData ?? {}, status: 'pending',
-  }).select('*').single();
+export async function createAudit(input: {
+  source: 'manual' | 'etsy';
+  email?: string | null;
+  url: string;
+  tier: AuditTier;
+  competitorUrls?: string[];
+  etsyReceiptId?: string;
+  etsyTransactionId?: string;
+  etsyListingId?: string;
+  etsyListingTitle?: string;
+  etsySku?: string;
+  etsyQuantity?: number;
+  inputData?: unknown;
+}) {
+  const row = {
+    source: input.source,
+    customer_email: input.email ?? null,
+    target_url: input.url,
+    tier: input.tier,
+    competitor_urls: input.competitorUrls ?? [],
+    etsy_receipt_id: input.etsyReceiptId ?? null,
+    etsy_transaction_id: input.etsyTransactionId ?? null,
+    etsy_listing_id: input.etsyListingId ?? null,
+    etsy_listing_title: input.etsyListingTitle ?? null,
+    etsy_sku: input.etsySku ?? null,
+    etsy_quantity: input.etsyQuantity ?? 1,
+    input_data: input.inputData ?? {},
+    status: 'pending',
+  };
+  const { data, error } = await db.from('audits').insert(row).select('*').single();
   if (error) {
-    if (input.etsyReceiptId) {
-      const existing = await db.from('audits').select('*').eq('etsy_receipt_id', input.etsyReceiptId).maybeSingle();
+    if (input.etsyTransactionId) {
+      const existing = await db.from('audits').select('*').eq('etsy_transaction_id', input.etsyTransactionId).maybeSingle();
       if (existing.data) return existing.data;
     }
     throw error;

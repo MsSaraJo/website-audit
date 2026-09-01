@@ -5,6 +5,7 @@ import { analyzeAudit } from './llm';
 import { renderReportHtml } from './report-template';
 import { htmlToPdf } from './pdf';
 import { emailReport, uploadReport } from './delivery';
+import { env } from './env';
 import { assertPublicUrl } from './url-security';
 import type { AuditTier } from './types';
 
@@ -29,13 +30,38 @@ export async function processAudit(id: string) {
       }
     }
     await updateAudit(id, 'analyzing', { scrape_data: site, pagespeed_data: pageSpeed, competitor_data: competitors });
-    const analysis = await analyzeAudit({ tier, site, pageSpeed, competitors });
+    const customerContext = audit.input_data?.buyerInputs ?? undefined;
+    const analysis = await analyzeAudit({ tier, site, pageSpeed, competitors, customerContext });
     await updateAudit(id, 'generating_pdf', { analysis });
     const html = renderReportHtml({ analysis, site, pageSpeed, tier, createdAt: audit.created_at });
     const pdf = await htmlToPdf(html);
+    const etsyMaxFileBytes = 20 * 1024 * 1024;
+    if (audit.source === 'etsy' && pdf.byteLength > etsyMaxFileBytes) {
+      throw new Error(`Generated PDF is ${(pdf.byteLength / 1024 / 1024).toFixed(1)} MB, above Etsy's 20 MB per-file limit for digital order uploads.`);
+    }
     const uploaded = await uploadReport(id, pdf);
-    await emailReport(audit.customer_email, uploaded.url, analysis.overallScore);
-    await updateAudit(id, 'completed', { report_path: uploaded.path, report_url: uploaded.url, completed_at: new Date().toISOString() });
+
+    let emailDeliveredAt: string | null = null;
+    const shouldEmail = audit.source === 'manual' || (audit.source === 'etsy' && env.ETSY_EMAIL_COPY_ENABLED === 'true');
+    if (shouldEmail && audit.customer_email) {
+      await emailReport(audit.customer_email, uploaded.url, analysis.overallScore, tier);
+      emailDeliveredAt = new Date().toISOString();
+    }
+
+    if (audit.source === 'etsy') {
+      await updateAudit(id, 'awaiting_etsy_upload', {
+        report_path: uploaded.path,
+        report_url: uploaded.url,
+        email_delivered_at: emailDeliveredAt,
+      });
+    } else {
+      await updateAudit(id, 'completed', {
+        report_path: uploaded.path,
+        report_url: uploaded.url,
+        email_delivered_at: emailDeliveredAt,
+        completed_at: new Date().toISOString(),
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await updateAudit(id, 'failed', { error_message: message.slice(0, 2000) });

@@ -1,11 +1,8 @@
 import { db } from './db';
-import { csvSet, env } from './env';
+import { env } from './env';
+import { productForListingId } from './products';
 import { extractCandidateUrls } from './url-security';
 import type { AuditTier } from './types';
-
-const tier1 = csvSet(env.ETSY_TIER1_LISTING_IDS);
-const tier2 = csvSet(env.ETSY_TIER2_LISTING_IDS);
-const tier3 = csvSet(env.ETSY_TIER3_LISTING_IDS);
 
 async function refreshAccessToken() {
   if (!env.ETSY_KEYSTRING) throw new Error('ETSY_KEYSTRING is not configured');
@@ -33,16 +30,38 @@ async function etsyGet(url: string) {
   return res.json();
 }
 
-function tierForTransactions(transactions: any[]): AuditTier {
-  const ids = transactions.map(t => String(t.listing_id ?? '')).filter(Boolean);
-  if (ids.some(id => tier3.has(id))) return 'competitor_conquest';
-  if (ids.some(id => tier2.has(id))) return 'full_site';
-  if (ids.some(id => tier1.has(id))) return 'quick_win';
-  const joined = JSON.stringify(transactions).toLowerCase();
-  if (joined.includes('competitor conquest')) return 'competitor_conquest';
-  if (joined.includes('full site') || joined.includes('ux breakdown')) return 'full_site';
-  return 'quick_win';
+const isEtsyOwned = (candidate: string) => {
+  try {
+    const h = new URL(candidate).hostname.toLowerCase();
+    return h === 'etsy.com' || h.endsWith('.etsy.com') || h.endsWith('.etsystatic.com');
+  } catch {
+    return true;
+  }
+};
+
+function personalizationForTransaction(transaction: any) {
+  return (transaction.variations ?? [])
+    .filter((v: any) => Number(v.property_id) === 54)
+    .map((v: any) => ({
+      name: String(v.formatted_name ?? 'Personalization'),
+      value: String(v.formatted_value ?? ''),
+    }))
+    .filter((v: { value: string }) => v.value.trim());
 }
+
+export type EtsyAuditOrderItem = {
+  transactionId: string;
+  listingId: string;
+  listingTitle: string;
+  tier: AuditTier;
+  sku: string;
+  quantity: number;
+  url: string | null;
+  competitorUrls: string[];
+  buyerInputs: Record<string, string>;
+  issue?: string;
+  rawTransaction: unknown;
+};
 
 export async function getEtsyOrderContext(resourceUrl: string, shopId: number) {
   const receipt = await etsyGet(resourceUrl);
@@ -50,24 +69,42 @@ export async function getEtsyOrderContext(resourceUrl: string, shopId: number) {
   if (!receiptId) throw new Error('Could not determine Etsy receipt ID');
   const tx = await etsyGet(`https://openapi.etsy.com/v3/application/shops/${shopId}/receipts/${receiptId}/transactions`);
   const transactions = tx.results ?? [];
-  // Etsy's 2026 personalization model still returns buyer answers in transaction.variations.
-  // property_id 54 is the personalization property; there may now be multiple entries/questions.
-  const personalizationValues = transactions.flatMap((t: any) =>
-    (t.variations ?? []).filter((v: any) => Number(v.property_id) === 54).map((v: any) => v.formatted_value)
-  );
-  const isEtsyOwned = (candidate: string) => {
-    try { const h = new URL(candidate).hostname.toLowerCase(); return h === 'etsy.com' || h.endsWith('.etsy.com') || h.endsWith('.etsystatic.com'); } catch { return true; }
-  };
-  let urls = extractCandidateUrls(personalizationValues).filter(u => !isEtsyOwned(u));
-  if (!urls.length) urls = extractCandidateUrls({ receipt: { message_from_buyer: receipt.message_from_buyer }, transactions }).filter(u => !isEtsyOwned(u));
-  if (!urls.length) throw new Error('No website URL found in Etsy order personalization');
+  const matchedTransactions = transactions.filter((t: any) => productForListingId(t.listing_id));
+  const fallbackReceiptUrls = matchedTransactions.length === 1
+    ? extractCandidateUrls(receipt.message_from_buyer ?? '').filter(u => !isEtsyOwned(u))
+    : [];
+
+  const items: EtsyAuditOrderItem[] = matchedTransactions.map((t: any) => {
+    const product = productForListingId(t.listing_id)!;
+    const personalization = personalizationForTransaction(t);
+    const buyerInputs = Object.fromEntries(personalization.map((p: { name: string; value: string }) => [p.name, p.value]));
+    let urls = extractCandidateUrls(personalization.map((p: { value: string }) => p.value)).filter(u => !isEtsyOwned(u));
+    if (!urls.length && fallbackReceiptUrls.length) urls = fallbackReceiptUrls;
+    const url = urls[0] ?? null;
+    const quantity = Math.max(1, Number(t.quantity ?? 1));
+    const issue = quantity > 1
+      ? 'This transaction has quantity greater than 1. One personalization set cannot be safely mapped to multiple custom reports; handle this order manually.'
+      : (url ? undefined : 'No website URL found in this Etsy transaction personalization.');
+    return {
+      transactionId: String(t.transaction_id ?? `${receiptId}:${t.listing_id}`),
+      listingId: String(t.listing_id),
+      listingTitle: String(t.title ?? product.name),
+      tier: product.tier,
+      sku: product.sku,
+      quantity,
+      url,
+      competitorUrls: product.tier === 'competitor_conquest' ? urls.slice(1, 4) : [],
+      buyerInputs,
+      issue,
+      rawTransaction: t,
+    };
+  });
+
   return {
     receiptId: String(receiptId),
     buyerEmail: receipt.buyer_email as string | undefined,
     buyerName: receipt.name as string | undefined,
-    url: urls[0],
-    competitorUrls: urls.slice(1, 4),
-    tier: tierForTransactions(transactions),
+    items,
     raw: { receipt, transactions },
   };
 }

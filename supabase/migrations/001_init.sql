@@ -1,7 +1,7 @@
 create extension if not exists pgcrypto;
 
 do $$ begin
-  create type audit_status as enum ('pending','scraping','analyzing','generating_pdf','completed','failed');
+  create type audit_status as enum ('pending','scraping','analyzing','generating_pdf','awaiting_etsy_upload','completed','failed');
 exception when duplicate_object then null; end $$;
 do $$ begin
   create type audit_tier as enum ('quick_win','full_site','competitor_conquest');
@@ -10,8 +10,13 @@ exception when duplicate_object then null; end $$;
 create table if not exists public.audits (
   id uuid primary key default gen_random_uuid(),
   source text not null check (source in ('manual','etsy')),
-  etsy_receipt_id text unique,
-  customer_email text not null,
+  etsy_receipt_id text,
+  etsy_transaction_id text,
+  etsy_listing_id text,
+  etsy_listing_title text,
+  etsy_sku text,
+  etsy_quantity integer not null default 1,
+  customer_email text,
   target_url text not null,
   competitor_urls jsonb not null default '[]'::jsonb,
   tier audit_tier not null,
@@ -25,12 +30,16 @@ create table if not exists public.audits (
   analysis jsonb,
   report_path text,
   report_url text,
+  email_delivered_at timestamptz,
+  etsy_upload_confirmed_at timestamptz,
   error_message text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   completed_at timestamptz
 );
 create index if not exists audits_status_created_idx on public.audits(status, created_at);
+create unique index if not exists audits_etsy_transaction_id_uidx on public.audits(etsy_transaction_id) where etsy_transaction_id is not null;
+create index if not exists audits_etsy_receipt_id_idx on public.audits(etsy_receipt_id) where etsy_receipt_id is not null;
 
 create table if not exists public.webhook_events (
   webhook_id text primary key,
@@ -38,6 +47,7 @@ create table if not exists public.webhook_events (
   payload jsonb not null,
   processed boolean not null default false,
   audit_id uuid references public.audits(id),
+  audit_ids jsonb not null default '[]'::jsonb,
   error_message text,
   created_at timestamptz not null default now()
 );
@@ -65,7 +75,7 @@ begin
          updated_at = now(),
          error_message = null
    where id = p_id
-     and status <> 'completed'
+     and status not in ('completed','awaiting_etsy_upload')
      and attempt_count < 3
      and (status in ('pending','failed') or updated_at < now() - interval '15 minutes')
   returning id into claimed_id;

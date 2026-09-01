@@ -7,7 +7,7 @@ const limits: Record<AuditTier, number> = { quick_win: 1, full_site: 5, competit
 async function fetchText(url: string) {
   try {
     await assertPublicUrl(url);
-    const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(8000), headers: { 'user-agent': 'SiteSignalAuditBot/1.0' } });
+    const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(8000), headers: { 'user-agent': 'MsSaraJoAuditBot/1.0' } });
     return r.ok ? (await r.text()).slice(0, 50000) : null;
   } catch { return null; }
 }
@@ -32,7 +32,7 @@ export async function scrapeSite(start: string, tier: AuditTier): Promise<SiteSc
 
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 1100 });
-      await page.setUserAgent('Mozilla/5.0 (compatible; SiteSignalAuditBot/1.0; +https://example.com/bot)');
+      await page.setUserAgent('Mozilla/5.0 (compatible; MsSaraJoAuditBot/1.0; +https://example.com/bot)');
       await hardenPage(page);
       try {
         await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });
