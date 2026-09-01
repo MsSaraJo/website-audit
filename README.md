@@ -343,3 +343,7 @@ New workspace routes:
 The UI uses the actual MsSaraJo horizontal logo in `public/mssarajo-logo.png`, warm ivory/paper surfaces, navy editorial typography, terracotta/emerald/gold tier accents, score arcs, sparkles, and report-inspired ornamental frames.
 
 See `URL_STRUCTURE_v4.14.md` for the route map and recommended production subdomain.
+
+## v4.16 report-detail nested-route fix
+
+The Reports detail view and PDF download are now base-path safe for the production deployment at `/website-audit`. See `REPORT_DETAIL_BASEPATH_FIX_v4.16.md`.
