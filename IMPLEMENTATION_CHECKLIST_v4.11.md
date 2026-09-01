@@ -47,3 +47,11 @@
 - [ ] No larger copy touches ornamental borders, arcs, page footers, or neighboring columns.
 - [ ] No card uses smaller emergency type to solve overflow; shorten generated copy instead.
 - [ ] Spot-check each report at 100% on desktop and fit-to-width on a smartphone-sized viewport.
+
+## Editorial voice consistency (v4.11)
+- [ ] Findings, measurements, site behavior, and competitor observations use third-person or neutral factual language.
+- [ ] Recommendations, priorities, opportunities, roadmap actions, and next steps address the client as **you/your**.
+- [ ] Avoid random POV switching inside one paragraph or field.
+- [ ] Avoid advisory phrases like "the business should" or "Company should" when a direct client instruction is more natural.
+- [ ] Competitor descriptions remain third person.
+- [ ] Spot-check at least one findings page and one recommendations/roadmap page in each tier before release.

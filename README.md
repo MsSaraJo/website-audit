@@ -298,3 +298,11 @@ For the premium tier, the AI response now also supports `competitorIntelligence`
 - Applies bounded client-facing copy plus a modest dense-text fallback instead of allowing variable AI output to overflow fixed PDF regions.
 - Standardizes cross-page insight border treatment while preserving the sage callout fill.
 - Skips near-empty non-strategic utility URLs for multi-page audits and continues searching for a more useful page.
+
+
+### v4.10 readable-copy pass
+Tier 2 and Tier 3 now use a higher readability floor for substantive client-facing copy and small content labels. Copy budgets were tightened slightly so layouts preserve breathing room rather than solving overflow with tiny type. Decorative/footer microtype is intentionally unchanged.
+
+
+### v4.11 editorial voice
+Reports now use a consistent voice rule: describe the site objectively in third person/neutral language; advise the client directly using you/your for recommendations, opportunities, and next steps.
