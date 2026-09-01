@@ -54,14 +54,19 @@ function scoreGauge(value: number, hero = false) {
   </svg>`;
 }
 function notchedFrame(className = '') {
+  // Match the approved Quick-tier ornamental corner geometry. The previous
+  // Comprehensive renderer used straight diagonal cut-corners, which made the
+  // cards feel harsher and visually inconsistent with the MsSaraJo report family.
   const ratios: Record<string, number> = {
     'executive-frame': 3.2, 'focus-frame': 3.05, 'page-card-frame': 1.75,
     'insight-frame': 1.45, 'why-frame': 4.8, 'rewrite-frame': 1.55,
     'takeaway-frame': 4.8, 'method-frame': 4.8,
   };
-  const ratio = ratios[className] || 3;
-  const h = 100, w = Math.round(ratio * h), n = 8;
-  return `<svg class="notched-frame ${className}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="M${n} 0H${w-n}L${w} ${n}V${h-n}L${w-n} ${h}H${n}L0 ${h-n}V${n}Z"/></svg>`;
+  const h = 100;
+  const w = Math.max(70, Math.round(h * (ratios[className] || 3)));
+  const r = 12;
+  const d = `M${r} 0H${w-r}C${w-r} ${r*.55} ${w-r*.55} ${r} ${w} ${r}V${h-r}C${w-r*.55} ${h-r} ${w-r} ${h-r*.55} ${w-r} ${h}H${r}C${r} ${h-r*.55} ${r*.55} ${h-r} 0 ${h-r}V${r}C${r*.55} ${r} ${r} ${r*.55} ${r} 0Z`;
+  return `<svg class="notched-frame ${className}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 function decorativeArc(className='') { return `<svg class="decorative-arc ${className}" viewBox="0 0 100 100" aria-hidden="true"><path d="M8 88A72 72 0 0 0 91 11"/></svg>`; }
 function brandLockup() {

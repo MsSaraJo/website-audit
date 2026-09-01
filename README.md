@@ -1,3 +1,10 @@
+# v4.2 Comprehensive crawl + corner fix
+
+- Treats `www.` and apex-domain redirects as the same site during multi-page discovery.
+- Reads both sitemap.xml and sitemap_index.xml for non-Quick tiers.
+- Restores the approved curved ornamental frame geometry in the Comprehensive PDF.
+- Keeps Quick and Competitive Edge renderers unchanged.
+
 # MsSaraJo Website Audit SaaS + Etsy Fulfillment MVP
 
 A production-oriented Next.js/TypeScript implementation for three separate Etsy made-to-order digital audit products:

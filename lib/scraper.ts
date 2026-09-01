@@ -16,10 +16,22 @@ async function fetchText(url: string, maxChars = 120000) {
   } catch { return null; }
 }
 
+function canonicalHost(hostname: string) {
+  return hostname.toLowerCase().replace(/^www\./, '');
+}
+
+function sameSite(raw: string, reference: string) {
+  try {
+    const a = new URL(raw);
+    const b = new URL(reference);
+    return canonicalHost(a.hostname) === canonicalHost(b.hostname);
+  } catch { return false; }
+}
+
 function normalizedInternal(raw: string, origin: string) {
   try {
     const u = new URL(raw, origin);
-    if (!['http:', 'https:'].includes(u.protocol) || u.origin !== origin) return null;
+    if (!['http:', 'https:'].includes(u.protocol) || !sameSite(u.toString(), origin)) return null;
     u.hash = '';
     // Tracking/query variants should not consume one of the limited audit pages.
     u.search = '';
@@ -64,7 +76,7 @@ function sitemapUrls(xml: string, origin: string) {
     const value = m[1].replace(/&amp;/g, '&').trim();
     try {
       const u = new URL(value);
-      if (u.origin === origin) urls.push(u.toString());
+      if (sameSite(u.toString(), origin)) urls.push(u.toString());
     } catch { /* ignore */ }
   }
   return urls;
@@ -78,11 +90,12 @@ async function discoverFromSitemaps(root: string, robotsTxt: string | null) {
     if (m) sitemapDocs.add(m[1]);
   }
   sitemapDocs.add(`${origin}/sitemap.xml`);
+  sitemapDocs.add(`${origin}/sitemap_index.xml`);
 
   const pageCandidates = new Set<string>();
-  const pending = [...sitemapDocs].slice(0, 5);
+  const pending = [...sitemapDocs].slice(0, 8);
   const fetched = new Set<string>();
-  while (pending.length && fetched.size < 6 && pageCandidates.size < 120) {
+  while (pending.length && fetched.size < 12 && pageCandidates.size < 160) {
     const docUrl = pending.shift()!;
     if (fetched.has(docUrl)) continue;
     fetched.add(docUrl);
